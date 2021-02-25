@@ -17,28 +17,210 @@ library(lmerTest)
 library(patchwork)
 library(glmmTMB)
 library(dplyr)
-
+library(tidyverse)
+library(multcomp)
 ```
 
 ```{r}
 getwd()
 
-Corn1= read.csv(file="Corn_MasterData.csv")
-Soybean1= read.csv(file="Soybean_MasterData.csv")
-ArlingtonCN20= read.csv(file="ArlingtonCorn2020.csv")
+Corn= read.csv(file="Corn_MasterData.csv")
+Soybean= read.csv(file="Soybean_MasterData.csv")
+
+CC= read.csv(file= "CoverCropData.csv")
+```
 
 
-str(Corn1)
-str(Soybean1)
+```{r}
+Corn1 <- Corn %>% 
+  mutate(Rep = as_factor(Rep),
+         Year = as_factor(Year),
+         Herb = fct_recode(Herb,
+                          "Control" = "CTRL",
+                          "50% fomesafen"  = "FO50",
+                          "25% fomesafen" = "FO25",
+                          "50% imazethapyr" = "IM50",
+                          "25% imazethapyr" = "IM25"),
+         Soil= fct_recode(Soil, 
+                          "Cover Crop" = "CC",
+                          "No-Till" = "NT",
+                          "Tillage" = "Till"),
+         Crop.Canopy = round(Crop.Canopy/100, 2)) %>%
+  filter(!is.na(yield)) %>%
+  filter(!is.na(Crop.Canopy)) %>%
+  filter(!is.na(Stand.Count)) %>%
+  janitor::clean_names()
+
+Soybean1 <- Soybean %>% 
+  mutate(Rep = as_factor(Rep),
+         Year = as_factor(Year),
+         Herb = fct_recode(Herb,
+                          "Control" = "CTRL",
+                          "50% fomesafen"  = "FO50",
+                          "25% fomesafen" = "FO25",
+                          "50% imazethapyr" = "IM50",
+                          "25% imazethapyr" = "IM25"),
+         Soil= fct_recode(Soil, 
+                          "Cover Crop" = "CC",
+                          "No-Till" = "NT",
+                          "Tillage" = "Till"),
+         Crop.Canopy = round(Crop.Canopy/100, 2)) %>%
+  filter(!is.na(yield)) %>%
+  filter(!is.na(Crop.Canopy)) %>%
+  filter(!is.na(Stand.Count)) %>%
+  janitor::clean_names()
+
+CornCC <- CC %>%
+  filter(Crop == "Corn") %>%
+  mutate(Rep = as_factor(Rep),
+         Year = as_factor(Year),
+         Site_Crop_Yr = fct_recode(Site_Crop_Yr,
+                          "Arlington 2019" = "ARL_CN_19",
+                          "Arlington 2020"  = "ARL_CN_20",
+                          "Havelock 2019" = "HAV_CN_19",
+                          "Havelock 2020" = "HAV_CN_20",
+                          "Lancaster 2019" = "LAN_CN_19",
+                          "Lancaster 2020" = "LAN_CN_20"),
+         Soil= fct_recode(Soil, 
+                          "Cover Crop" = "CC",
+                          "No-Till" = "NT",
+                          "Tillage" = "Till"),
+         Canopy = round(Canopy/100, 3)) %>%
+  filter(!is.na(Biomass_kg)) %>%
+  janitor::clean_names()
+
+order= c("Tillage", "No-Till", "Cover Crop")
+```
+
+
+```{r}
+Corn1 %>%
+  ggplot(aes(x = soil, y = yield, color = location)) +
+  geom_boxplot() +
+  facet_grid(crop ~ year)
+```
+
+```{r}
+Soybean1 %>%
+  ggplot(aes(x = soil, y = yield, color = location)) +
+  geom_boxplot() +
+  facet_grid(crop ~ year)
+```
+
+```{r}
+
 ```
 
 
 # Corn Yield
 
+```{r}
+arlcn_yield2= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Arlington")))
+
+qqnorm(resid(arlcn_yield2))
+
+plot(arlcn_yield2)
+#assumptions look good
+
+anova(arlcn_yield2)
+```
+
+### Arlington 2019 Analysis ---- We decided to use only this site-year in the paper
+```{r}
+arlcn_yield1= lmer(yield~ soil*herb + (1|rep:location), data= (filter(Corn1, site_crop_yr == "ARL_CN_19")))
+
+qqnorm(resid(arlcn_yield1))
+
+plot(arlcn_yield1)
+#assumptions look good
+
+anova(arlcn_yield1)
+#soil managment fixed effect significant
+```
+
+### Lancaster Analysis
+```{r}
+lancn_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Lancaster")))
+
+qqnorm(resid(lancn_yield))
+
+plot(lancn_yield)
+#assumptions look good
+
+anova(lancn_yield)
+#Soil management fixed effect significant
+```
+
+### Havelock Analysis
+```{r}
+havcn_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Havelock")))
+
+qqnorm(resid(havcn_yield))
+
+plot(havcn_yield)
+#assumptions look good
+
+anova(havcn_yield)
+#soil management significant
+```
+
+```{r}
+arl_cn_lsmeans<- lsmeans(arlcn_yield1, ~ soil, contr="pairwise", adjust="none")
+
+arl_cn_cld <- cld(arl_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+arl_cn_cld <- as_tibble(arl_cn_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+lan_cn_lsmeans<- lsmeans(lancn_yield, ~ soil, contr="pairwise", adjust="none")
+
+lan_cn_cld <- cld(lan_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan_cn_cld <- as_tibble(lan_cn_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+hav_cn_lsmeans<- lsmeans(havcn_yield, ~ soil, contr="pairwise", adjust="none")
+
+hav_cn_cld <- cld(hav_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+hav_cn_cld <- as_tibble(hav_cn_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+y1<- ggplot
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Yield for Majority of Corn studies
 ```{r}
-CNMaj= filter (Corn1, CRD == "N")
-
 CN.Mod1= lmer(yield~ Site_crop_yr*Soil*Herb + (1|Site_crop_yr:Rep), data=CNMaj)
 
 qqnorm(resid(CN.Mod1))
