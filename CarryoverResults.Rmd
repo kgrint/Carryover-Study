@@ -1,0 +1,119 @@
+---
+title: "Carryover Analysis"
+author: "Kolby Grint"
+date: "11/10/2020"
+output: pdf_document
+---
+
+```{r, include= FALSE}
+library(car)
+library(ggplot2)
+library(emmeans)
+library(lme4)
+library(lmerTest)
+library(patchwork)
+library(glmmTMB)
+library(dplyr)
+```
+
+```{r}
+getwd()
+
+Corn1= read.csv(file="Corn_MasterData.csv")
+Soybean1= read.csv(file="Soybean_MasterData.csv")
+
+str(Corn1)
+str(Soybean1)
+```
+# Need to address 2020 arlington corn studying needing to be a CRD?
+
+
+
+# Corn Yield
+```{r}
+corn.mod1= lmer(yield~ Site_crop_yr*Soil*Herb + (1|Site_crop_yr:Rep), data=Corn1)
+
+qqnorm(resid(corn.mod1))
+
+plot(corn.mod1)
+
+anova(corn.mod1)
+# Soil and site-year fixed effects significant. Soil:Site_crop_yr interaction significant.
+
+cornmeans= lsmeans(corn.mod1 ,~ Soil|Site_crop_yr, contr="pairwise", adjust="none", type="response")
+cornmeans1CLD<- CLD(cornmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+cornmeans1CLD
+ #
+```
+
+
+
+# Soybean Yield
+```{r}
+soy.mod1= lmer(yield~ Site_crop_yr*Soil*Herb + (1|Site_crop_yr:Rep), data=Soybean1)
+
+qqnorm(resid(soy.mod1))
+
+plot(soy.mod1)
+
+anova(soy.mod1)
+# Soil fixed effect and soil:Site_crop_yr interaction significant
+
+soymeans= lsmeans(soy.mod1 ,~ Soil|Site_crop_yr, contr="pairwise", adjust="none", type="response")
+soymeans1CLD<- CLD(soymeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+soymeans1CLD
+#Lancaster 2019 soybean yield slightly reduced. All other statistically similar
+```
+Look at high yields at Lancaster 2019
+
+
+# Corn Canopy
+```{r}
+Corn1= Corn1 %>%
+  mutate(CNcanopy= Crop.Canopy/100)
+corn.mod2= glmmTMB(CNcanopy~ Site_crop_yr*Soil*Herb + (1|Site_crop_yr:Rep), data=Corn1, beta_family(link="logit"))
+
+Anova(corn.mod2)
+#Soil, Herb, and site-year fixed effect and Site_crop_yr:Soil interaction significant.
+
+emmip(corn.mod2, Site_crop_yr ~ Soil)
+
+corncanopy1= emmeans(corn.mod2 ,~ Soil|Site_crop_yr, contr="pairwise", adjust="none", type="response")
+corncanopy1CLD<- CLD(corncanopy1, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+corncanopy1CLD
+
+corncanopy2= emmeans(corn.mod2 ,~ Herb, contr="pairwise", adjust="none", type="response")
+corncanopy2CLD<- CLD(corncanopy2, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+corncanopy2CLD
+```
+
+```{r}
+Soybean1= Soybean1 %>%
+  mutate(SBcanopy= Crop.Canopy/100)
+soy.mod2= glmmTMB(SBcanopy~ Site_crop_yr*Soil*Herb + (1|Site_crop_yr:Rep), data=Soybean1, beta_family(link="logit"))
+
+Anova(soy.mod2)
+# Soil and Herbicide fixed effects significant.Site_crop_yr:Soil interaction was also significant
+
+emmip(soy.mod2, Site_crop_yr ~ Soil)
+
+soycanopy1= emmeans(soy.mod2 ,~ Soil|Site_crop_yr, contr="pairwise", adjust="none", type="response")
+soycanopy1CLD<- CLD(soycanopy1, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+soycanopy1CLD
+
+soycanopy2= emmeans(soy.mod2 ,~ Herb, contr="pairwise", adjust="none", type="response")
+soycanopy2CLD<- CLD(soycanopy2, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+soycanopy2CLD
+
+plot(lsmean~herb)
+```
+
+
+
+
