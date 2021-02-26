@@ -28,6 +28,9 @@ Corn= read.csv(file="Corn_MasterData.csv")
 Soybean= read.csv(file="Soybean_MasterData.csv")
 
 CC= read.csv(file= "CoverCropData.csv")
+
+cnyield= data.frame()
+sbyield= data.frame()
 ```
 
 
@@ -61,7 +64,7 @@ Soybean1 <- Soybean %>%
                           "50% imazethapyr" = "IM50",
                           "25% imazethapyr" = "IM25"),
          Soil= fct_recode(Soil, 
-                          "Cover Crop" = "CC",
+                          "Cover Crop" = "NT+CC",
                           "No-Till" = "NT",
                           "Tillage" = "Till"),
          Crop.Canopy = round(Crop.Canopy/100, 2)) %>%
@@ -81,12 +84,25 @@ CornCC <- CC %>%
                           "Havelock 2020" = "HAV_CN_20",
                           "Lancaster 2019" = "LAN_CN_19",
                           "Lancaster 2020" = "LAN_CN_20"),
-         Soil= fct_recode(Soil, 
-                          "Cover Crop" = "CC",
-                          "No-Till" = "NT",
-                          "Tillage" = "Till"),
          Canopy = round(Canopy/100, 3)) %>%
-  filter(!is.na(Biomass_kg)) %>%
+  filter(!is.na(Biomass_kg)&
+           Site_Crop_Yr != c("ARL_CN_20","ARL_CN_19")) %>%
+  janitor::clean_names()
+
+SBCC <- CC %>%
+  filter(Crop == "Soybean") %>%
+  mutate(Rep = as_factor(Rep),
+         Year = as_factor(Year),
+         Site_Crop_Yr = fct_recode(Site_Crop_Yr,
+                          "Arlington 2019" = "ARL_SB_19",
+                          "Arlington 2020"  = "ARL_SB_20",
+                          "Havelock 2019" = "HAV_SB_19",
+                          "Havelock 2020" = "HAV_SB_20",
+                          "Lancaster 2019" = "LAN_SB_19",
+                          "Lancaster 2020" = "LAN_SB_20"),
+         Canopy = round(Canopy/100, 3)) %>%
+  filter(!is.na(Biomass_kg) &
+           Site_Crop_Yr != "ARL_SB_19") %>%
   janitor::clean_names()
 
 order= c("Tillage", "No-Till", "Cover Crop")
@@ -196,251 +212,189 @@ hav_cn_cld <- as_tibble(hav_cn_cld) %>%
   mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
+```{r}
+arl_cn_cld$location= c("Arlington")
+lan_cn_cld$location= c('Lancaster')
+hav_cn_cld$location= c('Havelock')
+
+cnyield<- rbind(arl_cn_cld, cnyield)
+cnyield<- rbind(lan_cn_cld, cnyield)
+cnyield<- rbind(hav_cn_cld, cnyield)
+```
 
 ```{r}
-y1<- ggplot
+Corn1= Corn1 %>%
+ filter(site_crop_yr != "ARL_CN_20")
+
+y1<- ggplot(cnyield, aes(x= soil, y= yield, color= soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 2200) +
+  geom_jitter(data = Corn1 ,mapping = aes(y = yield), alpha = 0.2) +
+  #coord_flip() +
+  facet_grid(~location) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none") +
+  labs(title = "Corn Yield")
+
+
+```
+
+
+
+
+# Soybean Yield
+
+### Arlington Analysis
+```{r}
+arl_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Arlington")))
+
+qqnorm(resid(arl_sb_yield))
+
+plot(arl_sb_yield)
+#assumptions look good
+
+anova(arl_sb_yield)
+#Soil management fixed effect significant
+```
+
+### Lancaster Analysis
+```{r}
+lan_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Lancaster")))
+
+qqnorm(resid(lan_sb_yield))
+
+plot(lan_sb_yield)
+#assumptions look good
+
+anova(lan_sb_yield)
+#Soil management fixed effect significant
+```
+
+### Havelock Analysis
+```{r}
+hav_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Havelock")))
+
+qqnorm(resid(hav_sb_yield))
+
+plot(hav_sb_yield)
+#assumptions look good
+
+anova(hav_sb_yield)
+#nothing significant
+```
+
+```{r}
+arl_sb_lsmeans<- lsmeans(arl_sb_yield, ~ soil, contr="pairwise", adjust="none")
+
+arl_sb_cld <- cld(arl_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+arl_sb_cld <- as_tibble(arl_sb_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+lan_sb_lsmeans<- lsmeans(lan_sb_yield, ~ soil, contr="pairwise", adjust="none")
+
+lan_sb_cld <- cld(lan_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan_sb_cld <- as_tibble(lan_sb_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+hav_sb_lsmeans<- lsmeans(hav_sb_yield, ~ soil, contr="pairwise", adjust="none")
+
+hav_sb_cld <- cld(hav_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+hav_sb_cld <- as_tibble(hav_sb_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r}
+arl_sb_cld$location= c("Arlington")
+lan_sb_cld$location= c('Lancaster')
+hav_sb_cld$location= c('Havelock')
+
+sbyield<- rbind(arl_sb_cld, sbyield)
+sbyield<- rbind(lan_sb_cld, sbyield)
+sbyield<- rbind(hav_sb_cld, sbyield)
+```
+
+```{r}
+y2<- ggplot(sbyield, aes(x= soil, y= yield, color= soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 800) +
+  geom_jitter(data = Soybean1 ,mapping = aes(y = yield), alpha = 0.2) +
+  #coord_flip() +
+  facet_grid(~location) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none") +
+  labs(title = "Soybean Yield")
+
+
 ```
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## Yield for Majority of Corn studies
+# Cover Crop analysis
+### Corn
 ```{r}
-CN.Mod1= lmer(yield~ Site_crop_yr*Soil*Herb + (1|Site_crop_yr:Rep), data=CNMaj)
 
-qqnorm(resid(CN.Mod1))
+cn_cc_bio= lmer(biomass_kg~ site_crop_yr * herb + (1|site_crop_yr:rep), data=CornCC)
 
-plot(CN.Mod1)
-#Assumptions for normality and equal variance met beautifully
+qqnorm(resid(cn_cc_bio))
+plot(cn_cc_bio)
+#Assumption for equal variance not met
 
-anova(CN.Mod1)
-# Site-year:Soil 2-way interaction significant
+cn_cc_bio1= lmer(sqrt(biomass_kg)~ site_crop_yr * herb + (1|site_crop_yr:rep), data=CornCC)
 
-cornmeans= lsmeans(CN.Mod1 ,~ Soil|Site_crop_yr, contr="pairwise", adjust="none", type="response")
-cornmeans1CLD<- CLD(cornmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+qqnorm(resid(cn_cc_bio1))
+plot(cn_cc_bio1)
+#assumptions improved. Use this one!
 
-cornmeans1CLD
+anova(cn_cc_bio1)
+#Site-year significant
 ```
-Tillage Had the highest corn yield at all locations.
-
+### Soybean
 ```{r}
-levels(cornmeans1CLD$Site_crop_yr)= list("Arlington '19" ="ARL_CN_19","Havelock '19"="HAV_CN_19", "Havelock '20"="HAV_CN_20", "Lancaster '19"="LAN_CN_19", "Lancaster '20"="LAN_CN_20")
+sb_cc_bio= lmer(biomass_kg~ site_crop_yr * herb + (1|site_crop_yr:rep), data=SBCC)
 
-ylab.text1= expression("Yield kg ha"^"-1")
+qqnorm(resid(sb_cc_bio))
+plot(sb_cc_bio)
+#assumptions for equal variance not met
 
-ggplot(cornmeans1CLD, aes(x= Soil, y= lsmean, label= .group, fill= Site_crop_yr))+
-  facet_grid(~Site_crop_yr)+      
-  geom_point(aes(),stat= "identity")+
-         theme_bw()+
-         geom_text(nudge_y= 1600, size = 4)+
-         theme(panel.grid.major=element_blank(), panel.grid.minor= element_blank(),
-        plot.title= element_text(size=16),
-        axis.title.x=element_text(size= 15),
-        axis.title.y= element_text(size= 15),
-        axis.text= element_text(size= 11))+
-         ylim(0,18000)+
-    geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-    labs(title= "Corn Yield", x= "Soil Management", y= (ylab.text1))+
-  ggsave("CornCarryoverYield.jpeg", height= 6, width= 10, dpi=600)
+sb_cc_bio1= lmer(sqrt(biomass_kg)~ site_crop_yr * herb + (1|site_crop_yr:rep), data=SBCC)
+
+qqnorm(resid(sb_cc_bio1))
+plot(sb_cc_bio1)
+#assumption improved. Maybe clean datapoint
+
+anova(sb_cc_bio1)
+#Site-year significant
 ```
 
 
-## Majority of Corn Canopy Cover
+
+
+#Cover Crop Canopy
+### Corn
 ```{r}
-CNMaj= CNMaj %>%
-  mutate(CNcanopy= Crop.Canopy/100)
+sb_cc_bio= glmmTMB(canopy~ site_crop_yr*herb + (1|site_crop_yr:rep), data=SBCC, beta_family(link="logit"))
 
-CN.Mod2= glmmTMB(CNcanopy~ Site_crop_yr*Soil*Herb + (1|Site_crop_yr:Rep), data=CNMaj, beta_family(link="logit"))
-
-Anova(CN.Mod2)
-#Site_crop_yr:Soil 2-way interaction and herbicide fixed effect significant
-
-corncanopy= emmeans(CN.Mod2 ,~ Soil|Site_crop_yr, contr="pairwise", adjust="none", type="response")
-corncanopyCLD<- CLD(corncanopy, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-corncanopyCLD
-
-corncanopyHerb= emmeans(CN.Mod2 ,~ Herb, contr="pairwise", adjust="none", type="response")
-corncanopyHerbCLD<- CLD(corncanopyHerb, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-corncanopyHerbCLD
-```
-Canopy coverage response varied.
-The high rate of imazethapyr reduced canopy coverage.
-
-```{r}
-levels(corncanopyCLD$Site_crop_yr)= list("Arlington '19" ="ARL_CN_19","Havelock '19"="HAV_CN_19", "Havelock '20"="HAV_CN_20", "Lancaster '19"="LAN_CN_19", "Lancaster '20"="LAN_CN_20")
-
-ggplot(corncanopyCLD, aes(x= Soil, y= response*100, label= .group, fill= Site_crop_yr))+
-  facet_grid(~Site_crop_yr)+      
-  geom_point(aes(),stat= "identity")+
-         theme_bw()+
-         geom_text(nudge_y= 5, size = 4)+
-         theme(panel.grid.major=element_blank(), panel.grid.minor= element_blank(),
-        plot.title= element_text(size=16),
-        axis.title.x=element_text(size= 15),
-        axis.title.y= element_text(size= 15),
-        axis.text= element_text(size= 11))+
-         ylim(0,50)+
-    geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3)+
-    labs(title= "Corn Canopy Coverage", x= "Soil Management", y= "% Canopy Cover")+
-  ggsave("CornCarryoverCanopy.jpeg", height= 6, width= 10, dpi=600)
-```
-
-```{r}
-ggplot(corncanopyHerbCLD, aes(x= Herb, y= response*100, label= .group, fill= Herb))+
-  geom_point(aes(),stat= "identity")+
-         theme_bw()+
-         geom_text(nudge_y= 5, size = 4)+
-         theme(panel.grid.major=element_blank(), panel.grid.minor= element_blank(),
-        plot.title= element_text(size=16),
-        axis.title.x=element_text(size= 15),
-        axis.title.y= element_text(size= 15),
-        axis.text= element_text(size= 11))+
-         ylim(0,30)+
-    geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3)+
-    labs(title= , x= "Herbicide Treatment", y= "% Canopy Cover")+
-  ggsave("CornCarryoverCanopy_Herbicide.jpeg", height= 6, width= 10, dpi=600)
+Anova(sb_cc_bio)
 ```
 
 
-## Arlington Corn 2020 CRD Corn Yield
-```{r}
-ARL20= filter(Corn1, CRD == "Y")
-
-CN.Mod3= lm(yield~ Soil*Herb, data=ARL20)
-
-qqnorm(resid(CN.Mod3))
-
-plot(CN.Mod3)
-
-anova(CN.Mod3)
-#Nothing is significant
-```
-No significant effects on yield at this location
-
-## Arlington Corn 2020 CRD Canopy Coverage
-```{r}
-ARL20= ARL20 %>%
-  mutate(CNcanopy= Crop.Canopy/100)
-
-CN.Mod4= glmmTMB(CNcanopy~ Soil*Herb, data=ARL20, beta_family(link="logit"))
-
-Anova(CN.Mod4)
-#Nothing significant
-```
-No significant effects on Canopy coverage at this location
-
-
-#Soybean Yield 
-```{r}
-SB.Mod1= lmer(yield~ Site_crop_yr*Soil*Herb + (1|Site_crop_yr:Rep), data=Soybean1)
-
-qqnorm(resid(SB.Mod1))
-
-plot(SB.Mod1)
-#Assumptions for normality and equal variance are met
-
-anova(SB.Mod1)
-#Site_crop_yr:Soil  2- way interacion significant
-
-SByield= lsmeans(SB.Mod1 ,~ Soil|Site_crop_yr, contr="pairwise", adjust="none", type="response")
-SByieldCLD<- CLD(SByield, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-SByieldCLD
-```
-Cover crop treatment reduced yield at Lancaster in 2019. Yield was the same in all other studies.
-
-```{r}
-levels(SByieldCLD$Site_crop_yr)= list("Arlington '19" ="ARL_SB_19", "Arlington '20"="ARL_SB_20", "Havelock '19"="HAV_SB_19", "Havelock '20"="HAV_SB_20", "Lancaster '19"="LAN_SB_19", "Lancaster '20"="LAN_SB_20")
-
-levels(SByieldCLD$Soil)= list("NT"="NT", "CT"="Till", "CC"="NT+CC")
-
-ggplot(SByieldCLD, aes(x= Soil, y= lsmean, label= .group, fill= Site_crop_yr))+
-  facet_grid(~Site_crop_yr)+      
-  geom_point(aes(),stat= "identity")+
-         theme_bw()+
-         geom_text(nudge_y= 600, size = 4)+
-         theme(panel.grid.major=element_blank(), panel.grid.minor= element_blank(),
-        plot.title= element_text(size=16),
-        axis.title.x=element_text(size= 15),
-        axis.title.y= element_text(size= 15),
-        axis.text= element_text(size= 11))+
-         ylim(0,6000)+
-    geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-    labs(title= "Soybean Yield", x= "Soil Management", y= (ylab.text1))+
-  ggsave("SBCarryoverYield.jpeg", height= 6, width= 10, dpi=600)
-```
-
-
-## Soybean Canopy Coverage
-```{r}
-Soybean1= Soybean1 %>%
-  mutate(CNcanopy= Crop.Canopy/100)
-
-SB.Mod2= glmmTMB(CNcanopy~ Site_crop_yr*Soil*Herb + (1|Site_crop_yr:Rep), data=Soybean1, beta_family(link="logit"))
-
-Anova(CN.Mod2)
-#Site_crop_yr:Soil 2-way interaction and Herb fixed effect significant.
-
-SBcanopy= emmeans(SB.Mod2 ,~ Soil|Site_crop_yr, contr="pairwise", adjust="none", type="response")
-SBcanopyCLD<- CLD(SBcanopy, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-SBcanopyCLD
-
-SBcanopyHerb= emmeans(SB.Mod2 ,~ Herb, contr="pairwise", adjust="none", type="response")
-SBcanopyHerbCLD<- CLD(SBcanopyHerb, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-SBcanopyHerbCLD
-```
-Effect on canopy coverage varied by soil treatment between site-years, tillage had increased canopy coverage in 4 out of 6 site years.
-The high rate of mesotrione reduced canopy coverage.
-
-
-```{r}
-levels(SBcanopyCLD$Site_crop_yr)= list("Arlington '19" ="ARL_SB_19", "Arlington '20"="ARL_SB_20", "Havelock '19"="HAV_SB_19", "Havelock '20"="HAV_SB_20", "Lancaster '19"="LAN_SB_19", "Lancaster '20"="LAN_SB_20")
-
-levels(SBcanopyCLD$Soil)= list("NT"="NT", "CT"="Till", "CC"="NT+CC")
-
-ggplot(SBcanopyCLD, aes(x= Soil, y= response*100, label= .group, fill= Site_crop_yr))+
-  facet_grid(~Site_crop_yr)+      
-  geom_point(aes(),stat= "identity")+
-         theme_bw()+
-         geom_text(nudge_y= 5, size = 4)+
-         theme(panel.grid.major=element_blank(), panel.grid.minor= element_blank(),
-        plot.title= element_text(size=16),
-        axis.title.x=element_text(size= 15),
-        axis.title.y= element_text(size= 15),
-        axis.text= element_text(size= 11))+
-         ylim(0,50)+
-    geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3)+
-    labs(title= "Soybean Canopy Coverage", x= "Soil Management", y= "% Canopy Cover")+
-  ggsave("SBCarryoverCanopy.jpeg", height= 6, width= 10, dpi=600)
-```
-
-```{r}
-ggplot(SBcanopyHerbCLD, aes(x= Herb, y= response*100, label= .group, fill= Herb))+
-  geom_point(aes(),stat= "identity")+
-         theme_bw()+
-         geom_text(nudge_y= 3, size = 4)+
-         theme(panel.grid.major=element_blank(), panel.grid.minor= element_blank(),
-        plot.title= element_text(size=16),
-        axis.title.x=element_text(size= 15),
-        axis.title.y= element_text(size= 15),
-        axis.text= element_text(size= 11))+
-         ylim(0,30)+
-    geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3)+
-    labs(title= , x= "Herbicide Treatment", y= "% Canopy Cover")+
-  ggsave("SBCarryoverCanopy_Herbicide.jpeg", height= 6, width= 10, dpi=600)
-```
 
