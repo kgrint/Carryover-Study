@@ -1,0 +1,492 @@
+---
+title: "Yield Components"
+author: "Kolby Grint"
+date: "2/7/2021"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r, include= FALSE}
+library(car)
+library(ggplot2)
+library(emmeans)
+library(lme4)
+library(lmerTest)
+library(patchwork)
+library(glmmTMB)
+library(dplyr)
+```
+
+
+```{r, include= FALSE}
+getwd()
+
+Corn= read.csv(file="CornYieldComponents.csv")
+Corn$Rep= factor(Corn$Rep)
+Corn$Year= factor(Corn$Year)
+
+Soybean= read.csv(file="SBYieldComponents.csv")
+Soybean$Rep= factor(Soybean$Rep)
+Soybean$Year= factor(Soybean$Year)
+
+str(Soybean)
+```
+
+### Filter
+```{r}
+Corn1= Corn %>% 
+  filter(Site_Yr != "ARL_20") %>%
+  filter(!is.na(Total)) %>%
+  filter(!is.na(Hundred)) %>%
+  filter(!is.na(Seeds))
+
+  
+Corn_ARL20= Corn %>%
+  filter(Site_Yr == "ARL_20") %>%
+  filter(!is.na(Total)) %>%
+  filter(!is.na(Hundred)) %>%
+  filter(!is.na(Seeds))
+
+Soybean1= Soybean %>%
+  filter(!is.na(Total)) %>%
+  filter(!is.na(Hundred)) %>%
+  filter(!is.na(Seeds))
+```
+
+
+# Corn Yield Components
+
+```{r}
+Corn1 %>% 
+  ggplot(aes(x =Total)) +
+  geom_density()
+
+Corn1 %>% 
+  ggplot(aes(x =Hundred)) +
+  geom_density()
+
+Corn1 %>% 
+  ggplot(aes(x =Seeds)) +
+  geom_density()
+```
+
+## Corn Total Sample Mass
+```{r, fig.show='hide'}
+CNTotal= lmer(Total~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Corn1)
+qqnorm(resid(CNTotal))
+plot(CNTotal)
+#normality is questionable, data looks a little skewed. Try transforming.
+
+CNTotal1= lmer((Total^2)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Corn1)
+qqnorm(resid(CNTotal1))
+plot(CNTotal1)
+#slightly improved on normality maybe. I think I will leave it untransformed since transformation isn't fitting of data type.
+```
+
+### ANOVA of untransformed corn total sample mass model
+```{r, echo= FALSE}
+anova(CNTotal)
+#2-way interaction between SIte-year and soil. Site-year and soil management main effects also significant.
+```
+
+### Corn total sample means comparison for Soil:Site-Year interaction
+```{r, echo=FALSE}
+CNTotMeans= lsmeans(CNTotal, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
+CLD1= CLD(CNTotMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD1
+```
+
+
+```{r, echo= FALSE, include= FALSE}
+CNTotal= ggplot(CLD1, aes(x=Soil , y=lsmean, label= .group))+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 150, size = 8)+
+  facet_grid(~Site_Yr)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Corn Total Sample Mass", x= "Soil Management", y= "Total Sample Mass")
+
+```
+
+```{r, echo= FALSE, include= FALSE}
+CNTotal
+```
+
+## Corn Seed Density
+```{r, fig.show='hide'}
+CNHundred= lmer(Hundred~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Corn1)
+qqnorm(resid(CNHundred))
+plot(CNHundred)
+#Assumptions for normality and equal variance satisfactorily met. Proceed with ANOVA.
+```
+
+### ANOVA of untransformed Corn Seed Density Model
+```{r, echo=FALSE}
+anova(CNHundred)
+#2-way interaction between SIte-year and soil. Site-year and soil management main effects also significant.
+```
+
+### Corn total sample means comparison for Soil:Site-Year interaction
+```{r, echo=FALSE}
+CNHundredMeans= lsmeans(CNHundred, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
+CLD2= CLD(CNHundredMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD2
+```
+
+
+```{r, echo= FALSE, include= FALSE}
+CNSeedDensity= ggplot(CLD2, aes(x=Soil , y=lsmean, label= .group))+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 2, size = 8)+
+  facet_grid(~Site_Yr)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Corn Seed Density", x= "Soil Management", y= "100 Seed Weight")
+
+```
+
+```{r, echo= FALSE, include= FALSE}
+CNSeedDensity
+```
+
+## Corn Seed Count
+```{r, fig.show='hide'}
+CNSeeds= lmer(Seeds~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Corn1)
+qqnorm(resid(CNSeeds))
+plot(CNSeeds)
+#Normality assumption isn't amazing Proceed to transform
+
+CNSeeds1= lmer((Seeds^2)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Corn1)
+qqnorm(resid(CNSeeds1))
+plot(CNSeeds1)
+#Assumption for normal distribution improved. This transformation doesn't really make sense for this data, so proceeded with first model.
+```
+
+### ANOVA of untransformed Corn Seed Count Model
+```{r, echo=FALSE}
+anova(CNSeeds)
+#2-way interaction between SIte-year and soil. Site-year and soil management main effects also significant.
+```
+
+### Corn seed count means comparison for Soil:Site-Year interaction
+```{r, echo=FALSE}
+CNSeedsMeans= lsmeans(CNSeeds, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
+CLD3= CLD(CNSeedsMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD3
+```
+
+
+```{r, echo= FALSE, include= FALSE}
+CNSeeds= ggplot(CLD3, aes(x=Soil , y=lsmean, label= .group))+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 400, size = 8)+
+  facet_grid(~Site_Yr)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Corn Seed Count", x= "Soil Management", y= "# of Seeds")
+```
+
+```{r, echo= FALSE, include= FALSE}
+CNSeeds
+```
+
+
+## Arlington 2020 Corn Analysis
+```{r, fig.show='hide'}
+ARL20CNTotal= lmer(Total~Soil*Herb+ (1|Rep) , data=Corn_ARL20)
+qqnorm(resid(ARL20CNTotal))
+plot(ARL20CNTotal)
+#Assumptions satisfactory
+
+ARL20CNHundred= lmer(Hundred~Soil*Herb+ (1|Rep) , data=Corn_ARL20)
+qqnorm(resid(ARL20CNHundred))
+plot(ARL20CNHundred)
+#Assumptions for normality and equal variance met.
+
+ARL20CNSeeds= lmer(Seeds~Soil*Herb+ (1|Rep) , data=Corn_ARL20)
+qqnorm(resid(ARL20CNSeeds))
+plot(ARL20CNSeeds)
+#Assumptions satisfactory
+
+```
+
+### ANOVAs of Arlington 2020 corn models
+```{r}
+anova(ARL20CNTotal)
+#nothing significant
+
+anova(ARL20CNHundred)
+#nothing significant
+
+anova(ARL20CNSeeds)
+#nothing significant
+```
+
+## Corn Figures
+```{r, echo= FALSE}
+CNTotal
+CNSeedDensity
+CNSeeds
+```
+
+
+
+
+# Soybean Yield Components
+
+```{r, include= FALSE, echo= FALSE}
+str(Soybean)
+```
+
+
+```{r}
+Soybean1 %>% 
+  ggplot(aes(x =Total)) +
+  geom_density()
+
+Soybean1 %>% 
+  ggplot(aes(x =Hundred)) +
+  geom_density()
+
+Soybean %>% 
+  ggplot(aes(x =Seeds)) +
+  geom_density()
+#skewed
+
+Soybean %>% 
+  ggplot(aes(x =Pods.Plant)) +
+  geom_density()
+#skewed
+
+Soybean %>% 
+  ggplot(aes(x =Seeds.Pod)) +
+  geom_density()
+#skewed
+```
+
+
+## SB 2020 Total Sample Mass
+```{r, fig.show='hide'}
+SBTotal= lmer(Total~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean1)
+qqnorm(resid(SBTotal))
+plot(SBTotal)
+#Based on visual assessment, assumptions for a normal distribution and equal variance appear to be met. Proceed with ANOVA
+
+```
+
+### ANOVA of untransformed SB total sample mass model
+```{r, echo=FALSE}
+anova(SBTotal)
+#Site-Year fixed effect significant
+```
+
+### SB total sample means comparison for Significant Site-Year fixed effect
+```{r, echo=FALSE}
+SBTotMeans= lsmeans(SBTotal, ~ Site_Yr, contr="pairwise", adjust="none", type= "response")
+CLD4= CLD(SBTotMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD4
+```
+
+```{r, echo= FALSE, include= FALSE}
+SBTot= ggplot(CLD4, aes(x=Site_Yr , y=lsmean, label= .group))+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 20, size = 8)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Soybean Total sample Mass", x= "Site-Year", y= "Sample Mass (g)")
+```
+
+```{r, echo= FALSE, include= FALSE}
+SBTot
+```
+
+
+## SB 2020 100 Seed Weight
+```{r, fig.show='hide'}
+SBHundred= lmer(Hundred~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean1)
+qqnorm(resid(SBHundred))
+plot(SBHundred)
+#Based on visual assessment, assumptions for a normal distribution and equal variance appear to be met. Proceed with ANOVA
+
+```
+
+### ANOVA of untransformed SB seed density model
+```{r, echo=FALSE}
+anova(SBHundred)
+#Site-year and soil management fixed effects significant
+```
+
+### SB seed density means comparisons for Significant soil and Site-Year fixed effects
+```{r, echo=FALSE}
+SBHundred_SoilMeans= lsmeans(SBHundred, ~ Soil, contr="pairwise", adjust="none", type= "response")
+CLD5= CLD(SBHundred_SoilMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD5
+
+SBHundred_SiteMeans= lsmeans(SBHundred, ~ Site_Yr, contr="pairwise", adjust="none", type= "response")
+CLD6= CLD(SBHundred_SiteMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD6
+```
+
+```{r, echo= FALSE, include= FALSE}
+SBDensitySoil=ggplot(CLD5, aes(x= Soil , y=lsmean, label= .group))+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 0.5, size = 8)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Soybean Seed density - Soil Management", x= "Soil Managment", y= "100 Seed Weight")
+
+SBDensitySite= ggplot(CLD6, aes(x=Site_Yr , y=lsmean, label= .group))+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 0.6, size = 8)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Soybean Seed Density - Site-Year", x= "Site-Year", y= "100 Seed Weight")
+```
+
+```{r, echo= FALSE, include= FALSE}
+SBDensitySoil
+
+SBDensitySite
+```
+
+
+## Soybean Seed Counts
+```{r}
+SBSeeds= lmer(Seeds~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
+qqnorm(resid(SBSeeds))
+plot(SBSeeds)
+#Look at transforming data. Not satisfied.
+
+SBSeeds1= lmer(log(Seeds)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
+qqnorm(resid(SBSeeds1))
+plot(SBSeeds1)
+#looks way better. Use this one
+
+SBSeeds2= lmer((sqrt(Seeds))~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
+qqnorm(resid(SBSeeds2))
+plot(SBSeeds2)
+#looks slightly better
+```
+
+### ANOVA of log transformed SB total seeds model
+```{r}
+anova(SBSeeds1)
+#3-way interaction between site-Year, soil management, and herbicide treatment. Site-Year fixed effect significant
+```
+
+### SB total seeds means comparison for Significant Soil:Herbicide:Site-Year interaction
+```{r, include= FALSE, echo= FALSE}
+SBSeeds_Means= lsmeans(SBSeeds1, ~ Soil*Herb|Site_Yr, contr="pairwise", adjust="none", type= "response")
+CLD7= CLD(SBSeeds_Means, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD7
+```
+Didn't include to keep PDF size smaller. It was a 3-way interactions so big and messy. See figure at end!
+
+```{r, echo= FALSE, include= FALSE}
+SBSeeds= ggplot(CLD7, aes(x= Herb, y= response, label= .group))+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 250, size = 4)+
+  facet_grid(Soil~Site_Yr)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Soybean Seed Count", x= "Herbicide Treatment", y= "# of Seeds")
+```
+
+```{r, echo= FALSE, include= FALSE}
+SBSeeds
+```
+
+## Soybean Pods/Plant
+```{r}
+SBPods_Plant= lmer(Pods.Plant~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
+qqnorm(resid(SBPods_Plant))
+plot(SBPods_Plant)
+#tranform!
+
+SBPods_Plant1= lmer(sqrt(Pods.Plant)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
+qqnorm(resid(SBPods_Plant1))
+plot(SBPods_Plant1)
+
+SBPods_Plant2= lmer(log(Pods.Plant)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
+qqnorm(resid(SBPods_Plant2))
+plot(SBPods_Plant2)
+#went with this transformation
+```
+
+### ANOVA of log transformed SB pods/plant model
+```{r}
+anova(SBPods_Plant2)
+#Site-year fixed effect significant
+```
+
+### SB pods/plant means comparison for Significant Site-Year fixed effect
+```{r, echo= FALSE}
+SBPods_PlantMeans= lsmeans(SBPods_Plant2, ~ Site_Yr, contr="pairwise", adjust="none", type= "response")
+CLD8= CLD(SBPods_PlantMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD8
+```
+
+```{r, include= FALSE, echo= FALSE}
+SBPods_Plant= ggplot(CLD8, aes(x=Site_Yr , y=response, label= .group))+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 0.6, size = 8)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Soybean Pods/Plant - Site-Year", x= "Site-Year", y= "# Pods/Plant")
+```
+
+```{r, include= FALSE,echo= FALSE}
+SBPods_Plant
+```
+
+## Soybean Seeds/Pod
+```{r, fig.show='hide'}
+SBSeeds_Pod= lmer(Seeds.Pod~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
+qqnorm(resid(SBSeeds_Pod))
+plot(SBSeeds_Pod)
+#Assumption for normal distribution and equal variance met satisfactorily.
+```
+
+### ANOVA of untransformed SB seeds/pod model
+```{r, echo=FALSE}
+anova(SBSeeds_Pod)
+#Site-Year:Soil management and Site-year:Herbicide 2-way interactions significant. Site-Year main effect also significant
+```
+
+### SB seeds/pod means comparison for Significant Soil:Site-Year and Herb:Site-Year interactions
+```{r, echo=FALSE}
+SBSeeds_PodSoilMeans= lsmeans(SBSeeds_Pod, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
+CLD9= CLD(SBSeeds_PodSoilMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD9
+
+SBSeeds_PodHerbMeans= lsmeans(SBSeeds_Pod, ~ Herb|Site_Yr, contr="pairwise", adjust="none", type= "response")
+CLD10= CLD(SBSeeds_PodHerbMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
+CLD10
+```
+
+```{r, include= FALSE, echo= FALSE}
+SBSeeds_Pod_Soil= ggplot(CLD9, aes(x= Soil, y=lsmean, label= .group))+
+  facet_grid(~Site_Yr)+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 0.6, size = 8)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Soybean Seeds/Pod - Soil Management", x= "Soil Management Practice", y= "# Seeds/Pod")
+   
+SBSeeds_Pod_Herb= ggplot(CLD10, aes(x= Herb, y=lsmean, label= .group))+
+  facet_grid(~Site_Yr)+
+   geom_point(aes(),stat= "identity")+
+   geom_text(nudge_y= 0.6, size = 8)+
+   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
+  labs(title= "Soybean Seeds/Pod - Herbicide Treatment", x= "Herbicide Treatment", y= "# Seeds/Pod")
+```
+
+```{r, include= FALSE, echo= FALSE}
+SBSeeds_Pod_Soil
+
+SBSeeds_Pod_Herb
+```
+
+## Soybean Yield Component Figures
+```{r}
+SBTot
+SBDensitySoil
+SBDensitySite
+SBSeeds
+SBPods_Plant
+SBSeeds_Pod_Soil
+SBSeeds_Pod_Herb
+```
+
