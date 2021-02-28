@@ -48,7 +48,8 @@ Corn1 <- Corn %>%
                           "Cover Crop" = "CC",
                           "No-Till" = "NT",
                           "Tillage" = "Till"),
-         Crop.Canopy = round(Crop.Canopy/100, 2)) %>%
+         Crop.Canopy = round(Crop.Canopy/100, 2),
+         yield = round(yield, 5)) %>%
   filter(!is.na(yield)) %>%
   filter(!is.na(Crop.Canopy)) %>%
   filter(!is.na(Stand.Count)) %>%
@@ -67,7 +68,8 @@ Soybean1 <- Soybean %>%
                           "Cover Crop" = "NT+CC",
                           "No-Till" = "NT",
                           "Tillage" = "Till"),
-         Crop.Canopy = round(Crop.Canopy/100, 2)) %>%
+         Crop.Canopy = round(Crop.Canopy/100, 2),
+         yield = round(yield, 4)) %>%
   filter(!is.na(yield)) %>%
   filter(!is.na(Crop.Canopy)) %>%
   filter(!is.na(Stand.Count)) %>%
@@ -77,7 +79,7 @@ CornCC <- CC %>%
   filter(Crop == "Corn") %>%
   mutate(Rep = as_factor(Rep),
          Year = as_factor(Year),
-         Site_Crop_Yr = fct_recode(Site_Crop_Yr,
+         Site_Crop_Yr = fct_recode(Site_crop_yr,
                           "Arlington 2019" = "ARL_CN_19",
                           "Arlington 2020"  = "ARL_CN_20",
                           "Havelock 2019" = "HAV_CN_19",
@@ -85,8 +87,9 @@ CornCC <- CC %>%
                           "Lancaster 2019" = "LAN_CN_19",
                           "Lancaster 2020" = "LAN_CN_20"),
          Canopy = round(Canopy/100, 3)) %>%
-  filter(!is.na(Biomass_kg)&
-           Site_Crop_Yr != c("ARL_CN_20","ARL_CN_19")) %>%
+  filter(!is.na(Biomass_kg)) %>%
+  filter(!is.na(Site_crop_yr)) %>% 
+  filter(!Site_crop_yr == "ARL_CN_20") %>%
   janitor::clean_names()
 
 SBCC <- CC %>%
@@ -101,8 +104,7 @@ SBCC <- CC %>%
                           "Lancaster 2019" = "LAN_SB_19",
                           "Lancaster 2020" = "LAN_SB_20"),
          Canopy = round(Canopy/100, 3)) %>%
-  filter(!is.na(Biomass_kg) &
-           Site_Crop_Yr != "ARL_SB_19") %>%
+  filter(!is.na(Biomass_kg)) %>%
   janitor::clean_names()
 
 order= c("Tillage", "No-Till", "Cover Crop")
@@ -170,6 +172,7 @@ anova(lancn_yield)
 ### Havelock Analysis
 ```{r}
 havcn_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Havelock")))
+#from my understanding the "boundary (singular) fit: see ?isSingular" error means that the estimate of error between random effects, in this case rep/year is almost zero, meaning there isn't a lot of random variability?
 
 qqnorm(resid(havcn_yield))
 
@@ -178,6 +181,9 @@ plot(havcn_yield)
 
 anova(havcn_yield)
 #soil management significant
+
+summary(havcn_yield)
+
 ```
 
 ```{r}
@@ -249,6 +255,7 @@ y1<- ggplot(cnyield, aes(x= soil, y= yield, color= soil)) +
 ### Arlington Analysis
 ```{r}
 arl_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Arlington")))
+summary(arl_sb_yield)
 
 qqnorm(resid(arl_sb_yield))
 
@@ -348,7 +355,7 @@ y2<- ggplot(sbyield, aes(x= soil, y= yield, color= soil)) +
 
 
 
-# Cover Crop analysis
+# Cover Crop Biomass analysis
 ### Corn
 ```{r}
 
@@ -385,15 +392,44 @@ anova(sb_cc_bio1)
 #Site-year significant
 ```
 
+```{r}
+
+```
 
 
+```{r}
 
-#Cover Crop Canopy
+```
+
+
+# Cover Crop Canopy
 ### Corn
+
+```{r}
+CornCC1 <- CornCC %>%
+  filter(!is.na(canopy))
+```
+
+```{r}
+cn_cc_bio= glmmTMB(canopy~ site_crop_yr*herb + (1|site_crop_yr:rep), data=CornCC1, beta_family(link="logit"))
+
+Anova(cn_cc_bio)
+#Site-year significant
+```
+
+### Soybean
+
+```{r}
+SBCC1 <- SBCC %>%
+  filter(!is.na(canopy))
+```
+
+
 ```{r}
 sb_cc_bio= glmmTMB(canopy~ site_crop_yr*herb + (1|site_crop_yr:rep), data=SBCC, beta_family(link="logit"))
 
 Anova(sb_cc_bio)
+#Site-Year significant
 ```
 
 
