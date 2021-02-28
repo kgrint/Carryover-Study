@@ -21,7 +21,7 @@ library(tidyverse)
 library(multcomp)
 ```
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 getwd()
 
 Corn= read.csv(file="Corn_MasterData.csv")
@@ -34,7 +34,7 @@ sbyield= data.frame()
 ```
 
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 Corn1 <- Corn %>% 
   mutate(Rep = as_factor(Rep),
          Year = as_factor(Year),
@@ -125,14 +125,10 @@ Soybean1 %>%
   facet_grid(crop ~ year)
 ```
 
-```{r}
-
-```
-
 
 # Corn Yield
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 arlcn_yield2= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Arlington")))
 
 qqnorm(resid(arlcn_yield2))
@@ -182,11 +178,11 @@ plot(havcn_yield)
 anova(havcn_yield)
 #soil management significant
 
-summary(havcn_yield)
+#summary(havcn_yield)
 
 ```
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 arl_cn_lsmeans<- lsmeans(arlcn_yield1, ~ soil, contr="pairwise", adjust="none")
 
 arl_cn_cld <- cld(arl_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
@@ -197,7 +193,7 @@ arl_cn_cld <- as_tibble(arl_cn_cld) %>%
   arrange(soil)
 ```
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 lan_cn_lsmeans<- lsmeans(lancn_yield, ~ soil, contr="pairwise", adjust="none")
 
 lan_cn_cld <- cld(lan_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
@@ -208,7 +204,7 @@ lan_cn_cld <- as_tibble(lan_cn_cld) %>%
   arrange(soil)
 ```
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 hav_cn_lsmeans<- lsmeans(havcn_yield, ~ soil, contr="pairwise", adjust="none")
 
 hav_cn_cld <- cld(hav_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
@@ -218,7 +214,7 @@ hav_cn_cld <- as_tibble(hav_cn_cld) %>%
   mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
-```{r}
+```{r, echo= FALSE, include= FALSE}
 arl_cn_cld$location= c("Arlington")
 lan_cn_cld$location= c('Lancaster')
 hav_cn_cld$location= c('Havelock')
@@ -244,7 +240,7 @@ y1<- ggplot(cnyield, aes(x= soil, y= yield, color= soil)) +
   theme(legend.position = "none") +
   labs(title = "Corn Yield")
 
-
+y1
 ```
 
 
@@ -292,7 +288,7 @@ anova(hav_sb_yield)
 #nothing significant
 ```
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 arl_sb_lsmeans<- lsmeans(arl_sb_yield, ~ soil, contr="pairwise", adjust="none")
 
 arl_sb_cld <- cld(arl_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
@@ -303,7 +299,7 @@ arl_sb_cld <- as_tibble(arl_sb_cld) %>%
   arrange(soil)
 ```
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 lan_sb_lsmeans<- lsmeans(lan_sb_yield, ~ soil, contr="pairwise", adjust="none")
 
 lan_sb_cld <- cld(lan_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
@@ -314,7 +310,7 @@ lan_sb_cld <- as_tibble(lan_sb_cld) %>%
   arrange(soil)
 ```
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 hav_sb_lsmeans<- lsmeans(hav_sb_yield, ~ soil, contr="pairwise", adjust="none")
 
 hav_sb_cld <- cld(hav_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
@@ -325,7 +321,7 @@ hav_sb_cld <- as_tibble(hav_sb_cld) %>%
   arrange(soil)
 ```
 
-```{r}
+```{r, echo= FALSE, include= FALSE}
 arl_sb_cld$location= c("Arlington")
 lan_sb_cld$location= c('Lancaster')
 hav_sb_cld$location= c('Havelock')
@@ -348,7 +344,7 @@ y2<- ggplot(sbyield, aes(x= soil, y= yield, color= soil)) +
   theme(legend.position = "none") +
   labs(title = "Soybean Yield")
 
-
+y2
 ```
 
 
@@ -433,4 +429,32 @@ Anova(sb_cc_bio)
 ```
 
 
+# Stand Counts
+
+### Corn
+```{r}
+cn_stand= lmer(stand_count~ site_crop_yr*soil*herb + (1|site_crop_yr:rep), data= (filter(Corn1, !site_crop_yr == "ARL_CN_20")))
+
+qqnorm(resid(cn_stand))
+
+plot(cn_stand)
+#assumptions met satisfactorily
+
+anova(cn_stand)
+#nothing significant
+```
+
+
+### Soybean
+```{r}
+sb_stand= lmer(stand_count~ site_crop_yr*soil*herb + (1|site_crop_yr:rep), data= Soybean1)
+
+qqnorm(resid(sb_stand))
+
+plot(sb_stand)
+#assumptions satisfactorily met
+
+anova(sb_stand)
+#site-year fixed effect significant.
+```
 
