@@ -607,8 +607,8 @@ hav19_soy_canherbCLD <- as_tibble(hav19_soy_canherbCLD) %>%
   mutate(herb= factor(herb, levels= order2)) %>%
   arrange(herb)
 
-hav20_soy_can_lsmeans= emmeans(hav_soy_can ,~ soil, contr="pairwise", adjust="none", type="response")
-hav20_soy_canCLD<- CLD(hav_soy_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+hav20_soy_can_lsmeans= emmeans(hav20_soy_can ,~ soil, contr="pairwise", adjust="none", type="response")
+hav20_soy_canCLD<- CLD(hav20_soy_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 hav20_soy_canCLD <- as_tibble(hav20_soy_canCLD) %>%
  rename(crop_canopy = response) %>%
@@ -701,7 +701,7 @@ sb_canopyherb <- ggplot(sbcanopy2, aes(x= herb, y= crop_canopy*100, color= herb)
   theme(legend.position = "none") +
   labs(title = "Soybean Canopy")
 ```
-
+Seems odd that the Ctrl treatment had reduced canopy cover at Havelock 2019. I double checked the herbicide treatments for the EUs and they seem to match.
 
 # Cover Crop Biomass analysis
 ```{r}
@@ -781,6 +781,8 @@ SBCC1 %>%
   facet_grid(crop ~ year)
 ```
 
+Based on differences between location across growing seasons I thought it was best to proceed with testing site-year as a fixed effect.
+
 ```{r}
 cn_cc_bio= glmmTMB(canopy~ site_crop_yr*herb + (1|site_crop_yr:rep), data=CornCC1, beta_family(link="logit"))
 
@@ -789,7 +791,6 @@ Anova(cn_cc_bio)
 ```
 
 ### Soybean
-
 ```{r}
 SBCC1 <- SBCC %>%
   filter(!is.na(canopy))
@@ -806,9 +807,45 @@ Anova(sb_cc_bio)
 
 # Stand Counts
 
+```{r, fig.width= 12, fig.height= 6}
+Corn1 %>%
+  ggplot(aes(x = soil, y = stand_count, color = location)) +
+  geom_boxplot() +
+  facet_grid(crop ~ year)
+```
+
+```{r, fig.width= 12, fig.height= 6}
+Corn1 %>%
+  ggplot(aes(x = herb, y = stand_count, color = location)) +
+  geom_boxplot() +
+  facet_grid(soil ~ year)
+
+```
+
+
+
+```{r, fig.width= 12, fig.height= 6}
+Soybean1 %>%
+  ggplot(aes(x = soil, y = stand_count, color = location)) +
+  geom_boxplot() +
+  facet_grid( ~ year)
+```
+
+```{r, fig.width= 12, fig.height= 6}
+Soybean1 %>%
+  ggplot(aes(x = herb, y = stand_count, color = location)) +
+  geom_boxplot() +
+  facet_grid(soil~ year)
+```
+
+
+Based on these visual representations it doesn't appear to me that there are really any consistent patterns as a function of soil management, herbicide treatment, location, or year. There does appear to be differences in location across seasons. Therefore, I think it is best if we test for site-year differences as a fixed effect in models for our initial approach and separate means by site-year where appropriate.
+
+
+
 ### Corn
 ```{r}
-cn_stand= lmer(stand_count~ site_crop_yr*soil*herb + (1|site_crop_yr:rep), data= (filter(Corn1, !site_crop_yr == "ARL_CN_20")))
+cn_stand= lmer(stand_count ~ site_crop_yr*soil*herb + (1|site_crop_yr:rep), data= Corn1)
 
 qqnorm(resid(cn_stand))
 
@@ -816,7 +853,7 @@ plot(cn_stand)
 #assumptions met satisfactorily
 
 anova(cn_stand)
-#nothing significant
+#site-year significant
 ```
 
 
