@@ -71,6 +71,27 @@ Corn1 %>%
   geom_density()
 ```
 
+
+```{r}
+Corn1 %>%
+  ggplot(aes(x = Soil, y = Total, color = Soil)) +
+  geom_boxplot() +
+  facet_grid(~ Site_Yr)
+
+Corn1 %>%
+  ggplot(aes(x = Soil, y = Hundred, color = Soil)) +
+  geom_boxplot() +
+  facet_grid(~ Site_Yr)
+
+Corn1 %>%
+  ggplot(aes(x = Soil, y = Seeds, color = Soil)) +
+  geom_boxplot() +
+  facet_grid(~ Site_Yr)
+```
+
+
+
+
 ## Corn Total Sample Mass
 ```{r, fig.show='hide'}
 CNTotal= lmer(Total~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Corn1)
