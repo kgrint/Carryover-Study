@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 
-```{r, include= FALSE}
+```{r, include = FALSE}
 library(car)
 library(ggplot2)
 library(emmeans)
@@ -21,12 +21,12 @@ library(multcomp)
 
 
 
-```{r}
+```{r, include = FALSE, echo = FALSE}
 getwd()
 
-Soybean= read.csv(file="Soybean_MasterData.csv")
+Soybean = read.csv(file="Soybean_MasterData.csv")
 
-Soybean= read.csv(file="SBYieldComponents.csv")
+SoybeanComp = read.csv(file="SBYieldComponents.csv")
 Soybean$Rep= factor(Soybean$Rep)
 Soybean$Year= factor(Soybean$Year)
 
@@ -37,9 +37,28 @@ order2= c("CTRL", "CL25", "CL50", "ME25", "ME50")
 ```
 
 
-```{r,}
+```{r, include = FALSE, echo = FALSE}
 
-Soybean2= Soybean %>%
+SoybeanComp= SoybeanComp %>%
+   mutate(Location = fct_recode(Location,
+                                "Arlington" = "ARL",
+                                "Lancaster" = "LAN",
+                                "Havelock" = "HAV"),
+          Site_Yr = fct_recode(Site_Yr,
+                          "Arlington 2019" = "ARL_19",
+                          "Arlington 2020" = "ARL_20",
+                          "Havelock 2019" = "HAV_19",
+                          "Havelock 2020" = "HAV_20",
+                          "Lancaster 2019" = "LAN_19",
+                          "Lancaster 2020" = "LAN_20"),
+          Soil = fct_recode(Soil,
+                            "Cover Crop" = "NT+CC",
+                            "No-Till" = "NT",
+                            "Tillage" = "Till"),
+          Total = round(Total, 3),
+          Hundred = round(Hundred, 4))
+
+SoybeanComp1= SoybeanComp %>%
   filter(!is.na(Total)) %>%
   filter(!is.na(Hundred)) %>%
   filter(!is.na(Seeds))
@@ -82,8 +101,17 @@ SBCC <- CC %>%
   janitor::clean_names()
 ```
 
+#Analysis Procedure
 
-# Stand Counts
+Prior to analysis I took the approach of plotting the response variables with box-plots to visualize treatment differences with soil management between locations. The intention of this was to visualize the differences between locations as well determine if I feel comfortable pooling things within a location (not testing for a site-year or year effect). This has been the desired direction to simplify results for publication. When I didn't feel the data allowed for this I tested for differences between site-years in a condensed model. This approach is up for more discussion, as it eliminates the potential to view anomalies in the data which might be insightful and scientifically interesting. We are assuming editors won't like complex findings.
+
+
+I would also like to point out that for every linear-mixed-effects model I am testing to see that the model meets the visual assumptions for normal distribution of residual and evenly distributed variance. I will demonstrate for the first model, and only include it in the output for future analyses when it is suspected that transformations need to be made.
+
+More analyses were made than are going to be included in this pdf. I chose not to include them all so as to condense the output to the approach and considerations that I think are most valuable for the publication.
+
+# Early seaston stand Counts Analysis
+
 ```{r, fig.width= 12, fig.height= 6}
 Soybean1 %>%
   ggplot(aes(x = soil, y = stand_count, color = location)) +
@@ -99,26 +127,56 @@ Soybean1 %>%
 ```
 
 
-Based on these visual representations it doesn't appear to me that there are really any consistent patterns as a function of soil management, herbicide treatment, location, or year. There does appear to be differences in location across seasons. Therefore, I think it is best if we test for site-year differences as a fixed effect in models for our initial approach and separate means by site-year where appropriate.
+Based on these visual representations it doesn't appear to me that there are  any consistent patterns as a function of soil management, herbicide treatment, location, or year. There does appear to be differences within a location across seasons. Therefore, I think it is best if we test for site-year differences as a fixed effect in a condensed models for our initial approach.
 
-
-### Soybean
+## Condensed Stand Count Model
 ```{r}
 sb_stand= lmer(stand_count~ site_crop_yr*soil*herb + (1|site_crop_yr:rep), data= Soybean1)
 
+Soybean1 %>% 
+  ggplot(aes(x = stand_count)) +
+  geom_density()
+#Looks a little skewed left but good to see the distribution is one hump
+
 qqnorm(resid(sb_stand))
+#Residuals are concentrated in a "straight" line. 
+#I am satisfied that this response variable is normally distributed
 
 plot(sb_stand)
-#assumptions satisfactorily met
-
+#Residuals are spread out evenly verticall and horizontally.
+#I am satisfied that this response variable has an evenly distributed variance.
+```
+### Stand count ANOVA
+```{r}
 anova(sb_stand)
 #site-year fixed effect significant.
 ```
+Herbicide carryover and soil management had no effect on early season stand counts in soybean.
 
+
+### Separation of means for each site-year based on soil management
+### Wasn't significant, done for fun (and to look at usefulness of means for yield later?)!
+```{r}
+sb_cc_stand_soillsmeans= lsmeans(sb_stand ,~ soil|site_crop_yr, contr="pairwise", adjust="none", type="response")
+sb_cc_stand_SoilCLD<- CLD(sb_cc_stand_soillsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+sb_cc_stand_SoilCLD
+```
+I wouldn't pay attention to the groupings since this interaction wasn't significant (although close).
+The reduced stand for soil management with a cover crop could help explain final grain yield.
+
+
+### Separation of means by site-year based on ANOVA
+I probably won't include mean separation for later analyses often, I just wanted to show you for the first one.
 ```{r}
 sb_cc_stand_lsmeans= lsmeans(sb_stand ,~ site_crop_yr, contr="pairwise", adjust="none", type="response")
+#Chris, you can ignore the warnings. It is just a suggestion!
+
 sb_cc_standCLD<- CLD(sb_cc_stand_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
+sb_cc_standCLD
+```
+
+```{r, include= FALSE, echo = FALSE}
 sb_cc_standCLD <- as_tibble(sb_cc_standCLD) %>% 
   rename(stand_count = lsmean) %>%
   mutate(site_crop_yr = fct_recode(site_crop_yr,
@@ -131,7 +189,8 @@ sb_cc_standCLD <- as_tibble(sb_cc_standCLD) %>%
   arrange(site_crop_yr)
 ```
 
-```{r}
+### Stand Count figure -- Not useful for paper but interesting
+```{r, echo= FALSE}
 ggplot(sb_cc_standCLD, aes(x= site_crop_yr, y= stand_count, color= site_crop_yr)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
@@ -143,429 +202,7 @@ ggplot(sb_cc_standCLD, aes(x= site_crop_yr, y= stand_count, color= site_crop_yr)
   theme(legend.position = "none") +
   labs(title = "Soybean Stand Counts")
 ```
-
-
-# Soybean Yield Components
-
-```{r}
-Soybean2 %>%
-  ggplot(aes(x = Soil, y = Total, color = Soil)) +
-  geom_boxplot() +
-  facet_grid(~ Site_Yr)
-
-Soybean2 %>%
-  ggplot(aes(x = Soil, y = Hundred, color = Soil)) +
-  geom_boxplot() +
-  facet_grid(~ Site_Yr)
-
-Soybean2 %>%
-  ggplot(aes(x = Soil, y = Seeds, color = Soil)) +
-  geom_boxplot() +
-  facet_grid(~ Site_Yr)
-
-Soybean %>%
-  ggplot(aes(x = Soil, y = Pods.Plant, color = Soil)) +
-  geom_boxplot() +
-  facet_grid(~ Site_Yr)
-
-Soybean %>%
-  ggplot(aes(x = Soil, y = Seeds.Pod, color = Soil)) +
-  geom_boxplot() +
-  facet_grid(~ Site_Yr)
-```
-
-
-## Pods.Plant By Location
-
-### Havelock
-```{r}
-arl_SBPods_Plant= lmer(Pods.Plant~Soil*Herb+ (1|Rep/Year) , data= (filter(Soybean, Location == "HAV")))
-qqnorm(resid(arl_SBPods_Plant))
-plot(arl_SBPods_Plant)
-
-arl_SBPods_Plant1= lmer(sqrt(Pods.Plant)~Soil*Herb+ (1|Rep/Year) , data= (filter(Soybean, Location == "HAV")))
-qqnorm(resid(arl_SBPods_Plant1))
-plot(arl_SBPods_Plant1)
-
-arl_SBPods_Plant2= lmer(log(Pods.Plant)~Soil*Herb+ (1|Rep/Year) , data= (filter(Soybean, Location == "HAV")))
-qqnorm(resid(arl_SBPods_Plant2))
-plot(arl_SBPods_Plant2)
-# go with log transformation
-```
-
-```{r}
-anova(arl_SBPods_Plant2)
-#nothing significant
-```
-
-
-
-
-
-```{r}
-Soybean1 %>% 
-  ggplot(aes(x =Total)) +
-  geom_density()
-
-Soybean1 %>% 
-  ggplot(aes(x =Hundred)) +
-  geom_density()
-
-Soybean %>% 
-  ggplot(aes(x =Seeds)) +
-  geom_density()
-#skewed
-
-Soybean %>% 
-  ggplot(aes(x =Pods.Plant)) +
-  geom_density()
-#skewed
-
-Soybean %>% 
-  ggplot(aes(x =Seeds.Pod)) +
-  geom_density()
-#skewed
-```
-
-
-
-
-## SB 2020 Total Sample Mass
-```{r, fig.show='hide'}
-SBTotal= lmer(Total~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean1)
-qqnorm(resid(SBTotal))
-plot(SBTotal)
-#Based on visual assessment, assumptions for a normal distribution and equal variance appear to be met. Proceed with ANOVA
-
-```
-
-### ANOVA of untransformed SB total sample mass model
-```{r, echo=FALSE}
-anova(SBTotal)
-#Site-Year fixed effect significant
-```
-
-### SB total sample means comparison for Significant Site-Year fixed effect
-```{r, echo=FALSE}
-SBTotMeans= lsmeans(SBTotal, ~ Site_Yr, contr="pairwise", adjust="none", type= "response")
-CLD4= CLD(SBTotMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
-CLD4
-```
-
-```{r, echo= FALSE, include= FALSE}
-SBTot= ggplot(CLD4, aes(x=Site_Yr , y=lsmean, label= .group))+
-   geom_point(aes(),stat= "identity")+
-   geom_text(nudge_y= 20, size = 8)+
-   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-  labs(title= "Soybean Total sample Mass", x= "Site-Year", y= "Sample Mass (g)")
-```
-
-```{r, echo= FALSE, include= FALSE}
-SBTot
-```
-
-
-## SB 2020 100 Seed Weight
-```{r, fig.show='hide'}
-SBHundred= lmer(Hundred~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean1)
-qqnorm(resid(SBHundred))
-plot(SBHundred)
-#Based on visual assessment, assumptions for a normal distribution and equal variance appear to be met. Proceed with ANOVA
-
-```
-
-### ANOVA of untransformed SB seed density model
-```{r, echo=FALSE}
-anova(SBHundred)
-#Site-year and soil management fixed effects significant
-```
-
-### SB seed density means comparisons for Significant soil and Site-Year fixed effects
-```{r, echo=FALSE}
-SBHundred_SoilMeans= lsmeans(SBHundred, ~ Soil, contr="pairwise", adjust="none", type= "response")
-CLD5= CLD(SBHundred_SoilMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
-CLD5
-
-SBHundred_SiteMeans= lsmeans(SBHundred, ~ Site_Yr, contr="pairwise", adjust="none", type= "response")
-CLD6= CLD(SBHundred_SiteMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
-CLD6
-```
-
-```{r, echo= FALSE, include= FALSE}
-SBDensitySoil=ggplot(CLD5, aes(x= Soil , y=lsmean, label= .group))+
-   geom_point(aes(),stat= "identity")+
-   geom_text(nudge_y= 0.5, size = 8)+
-   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-  labs(title= "Soybean Seed density - Soil Management", x= "Soil Managment", y= "100 Seed Weight")
-
-SBDensitySite= ggplot(CLD6, aes(x=Site_Yr , y=lsmean, label= .group))+
-   geom_point(aes(),stat= "identity")+
-   geom_text(nudge_y= 0.6, size = 8)+
-   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-  labs(title= "Soybean Seed Density - Site-Year", x= "Site-Year", y= "100 Seed Weight")
-```
-
-```{r, echo= FALSE, include= FALSE}
-SBDensitySoil
-
-SBDensitySite
-```
-
-
-## Soybean Seed Counts
-```{r}
-SBSeeds= lmer(Seeds~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
-qqnorm(resid(SBSeeds))
-plot(SBSeeds)
-#Look at transforming data. Not satisfied.
-
-SBSeeds1= lmer(log(Seeds)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
-qqnorm(resid(SBSeeds1))
-plot(SBSeeds1)
-#looks way better. Use this one
-
-SBSeeds2= lmer((sqrt(Seeds))~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
-qqnorm(resid(SBSeeds2))
-plot(SBSeeds2)
-#looks slightly better
-```
-
-### ANOVA of log transformed SB total seeds model
-```{r}
-anova(SBSeeds1)
-#3-way interaction between site-Year, soil management, and herbicide treatment. Site-Year fixed effect significant
-```
-
-### SB total seeds means comparison for Significant Soil:Herbicide:Site-Year interaction
-```{r, include= FALSE, echo= FALSE}
-SBSeeds_Means= lsmeans(SBSeeds1, ~ Soil*Herb|Site_Yr, contr="pairwise", adjust="none", type= "response")
-CLD7= CLD(SBSeeds_Means, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
-CLD7
-```
-Didn't include to keep PDF size smaller. It was a 3-way interactions so big and messy. See figure at end!
-
-```{r, echo= FALSE, include= FALSE}
-SBSeeds= ggplot(CLD7, aes(x= Herb, y= response, label= .group))+
-   geom_point(aes(),stat= "identity")+
-   geom_text(nudge_y= 250, size = 4)+
-  facet_grid(Soil~Site_Yr)+
-   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-  labs(title= "Soybean Seed Count", x= "Herbicide Treatment", y= "# of Seeds")
-```
-
-```{r, echo= FALSE, include= FALSE}
-SBSeeds
-```
-
-## Soybean Pods/Plant
-```{r}
-SBPods_Plant= lmer(Pods.Plant~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
-qqnorm(resid(SBPods_Plant))
-plot(SBPods_Plant)
-#tranform!
-
-SBPods_Plant1= lmer(sqrt(Pods.Plant)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
-qqnorm(resid(SBPods_Plant1))
-plot(SBPods_Plant1)
-
-SBPods_Plant2= lmer(log(Pods.Plant)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
-qqnorm(resid(SBPods_Plant2))
-plot(SBPods_Plant2)
-#went with this transformation
-```
-
-### ANOVA of log transformed SB pods/plant model
-```{r}
-anova(SBPods_Plant2)
-#Site-year fixed effect significant
-```
-
-### SB pods/plant means comparison for Significant Site-Year fixed effect
-```{r, echo= FALSE}
-SBPods_PlantMeans= lsmeans(SBPods_Plant2, ~ Site_Yr, contr="pairwise", adjust="none", type= "response")
-CLD8= CLD(SBPods_PlantMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
-CLD8
-```
-
-```{r, include= FALSE, echo= FALSE}
-SBPods_Plant= ggplot(CLD8, aes(x=Site_Yr , y=response, label= .group))+
-   geom_point(aes(),stat= "identity")+
-   geom_text(nudge_y= 0.6, size = 8)+
-   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-  labs(title= "Soybean Pods/Plant - Site-Year", x= "Site-Year", y= "# Pods/Plant")
-```
-
-```{r, include= FALSE,echo= FALSE}
-SBPods_Plant
-```
-
-## Soybean Seeds/Pod
-```{r, fig.show='hide'}
-SBSeeds_Pod= lmer(Seeds.Pod~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=Soybean)
-qqnorm(resid(SBSeeds_Pod))
-plot(SBSeeds_Pod)
-#Assumption for normal distribution and equal variance met satisfactorily.
-```
-
-### ANOVA of untransformed SB seeds/pod model
-```{r, echo=FALSE}
-anova(SBSeeds_Pod)
-#Site-Year:Soil management and Site-year:Herbicide 2-way interactions significant. Site-Year main effect also significant
-```
-
-### SB seeds/pod means comparison for Significant Soil:Site-Year and Herb:Site-Year interactions
-```{r, echo=FALSE}
-SBSeeds_PodSoilMeans= lsmeans(SBSeeds_Pod, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
-CLD9= CLD(SBSeeds_PodSoilMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
-CLD9
-
-SBSeeds_PodHerbMeans= lsmeans(SBSeeds_Pod, ~ Herb|Site_Yr, contr="pairwise", adjust="none", type= "response")
-CLD10= CLD(SBSeeds_PodHerbMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
-CLD10
-```
-
-```{r, include= FALSE, echo= FALSE}
-SBSeeds_Pod_Soil= ggplot(CLD9, aes(x= Soil, y=lsmean, label= .group))+
-  facet_grid(~Site_Yr)+
-   geom_point(aes(),stat= "identity")+
-   geom_text(nudge_y= 0.6, size = 8)+
-   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-  labs(title= "Soybean Seeds/Pod - Soil Management", x= "Soil Management Practice", y= "# Seeds/Pod")
-   
-SBSeeds_Pod_Herb= ggplot(CLD10, aes(x= Herb, y=lsmean, label= .group))+
-  facet_grid(~Site_Yr)+
-   geom_point(aes(),stat= "identity")+
-   geom_text(nudge_y= 0.6, size = 8)+
-   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-  labs(title= "Soybean Seeds/Pod - Herbicide Treatment", x= "Herbicide Treatment", y= "# Seeds/Pod")
-```
-
-```{r, include= FALSE, echo= FALSE}
-SBSeeds_Pod_Soil
-
-SBSeeds_Pod_Herb
-```
-
-## Soybean Yield Component Figures
-```{r}
-SBTot
-SBDensitySoil
-SBDensitySite
-SBSeeds
-SBPods_Plant
-SBSeeds_Pod_Soil
-SBSeeds_Pod_Herb
-```
-
-# Soybean Yield
-
-```{r}
-Soybean1 %>%
-  ggplot(aes(x = soil, y = yield, color = location)) +
-  geom_boxplot() +
-  facet_grid(crop ~ year)
-```
-
-### Arlington Analysis
-```{r}
-arl_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Arlington")))
-summary(arl_sb_yield)
-
-qqnorm(resid(arl_sb_yield))
-
-plot(arl_sb_yield)
-#assumptions look good
-
-anova(arl_sb_yield)
-#Soil management fixed effect significant
-```
-
-### Lancaster Analysis
-```{r}
-lan_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Lancaster")))
-
-qqnorm(resid(lan_sb_yield))
-
-plot(lan_sb_yield)
-#assumptions look good
-
-anova(lan_sb_yield)
-#Soil management fixed effect significant
-```
-
-### Havelock Analysis
-```{r}
-hav_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Havelock")))
-
-qqnorm(resid(hav_sb_yield))
-
-plot(hav_sb_yield)
-#assumptions look good
-
-anova(hav_sb_yield)
-#nothing significant
-```
-
-```{r, echo= FALSE, include= FALSE}
-arl_sb_lsmeans<- lsmeans(arl_sb_yield, ~ soil, contr="pairwise", adjust="none")
-
-arl_sb_cld <- cld(arl_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-arl_sb_cld <- as_tibble(arl_sb_cld) %>% 
-  rename(yield = lsmean) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-```{r, echo= FALSE, include= FALSE}
-lan_sb_lsmeans<- lsmeans(lan_sb_yield, ~ soil, contr="pairwise", adjust="none")
-
-lan_sb_cld <- cld(lan_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-lan_sb_cld <- as_tibble(lan_sb_cld) %>% 
-  rename(yield = lsmean) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-```{r, echo= FALSE, include= FALSE}
-hav_sb_lsmeans<- lsmeans(hav_sb_yield, ~ soil, contr="pairwise", adjust="none")
-
-hav_sb_cld <- cld(hav_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-hav_sb_cld <- as_tibble(hav_sb_cld) %>% 
-  rename(yield = lsmean) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-```{r, echo= FALSE, include= FALSE}
-arl_sb_cld$location= c("Arlington")
-lan_sb_cld$location= c('Lancaster')
-hav_sb_cld$location= c('Havelock')
-
-sbyield<- rbind(arl_sb_cld, sbyield)
-sbyield<- rbind(lan_sb_cld, sbyield)
-sbyield<- rbind(hav_sb_cld, sbyield)
-```
-
-```{r}
-y2<- ggplot(sbyield, aes(x= soil, y= yield, color= soil)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 800) +
-  geom_jitter(data = Soybean1 ,mapping = aes(y = yield), alpha = 0.2) +
-  #coord_flip() +
-  facet_grid(~location) +
-  theme_bw() +
-  scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Soybean Yield")
-
-y2
-```
-
-
+Soybean stand counts were planted at 370,000 seeds ha^-1 in NE and ~346,000 seeds ha^-1 in WI
 
 # Crop Canopy
 
@@ -576,20 +213,30 @@ Soybean1 %>%
   facet_grid(~ year)
 ```
 
-Based on the variability in canopy coverage between cropping seasons for both crops, I will create a simplified model with for all of them and then separating means with this model as well as models for each site-crop year.
+Based on the variability in canopy coverage between cropping seasons within a location, 
+I created a condensed model, similar to the stand count model, with site-year as 
+a fixed effect.
+
+I also decided to perform the analysis using a separate model for each site-year. 
+The first model and figures resulting from this analysis will also be displayed.
 
 
-## Soybean Canopy
+## Condensed Canopy model
 
-# Simplified model
-```{r}
+a glmmTMB (generalized linear) model was used instead of a standard linear mixed-effects model 
+because % canopy cover is a non-continuous variable. There are no assumption to meet for this 
+type of model.
+
+```{r, }
 sb_canopy = glmmTMB(crop_canopy~ soil*herb*site_crop_yr + (1|rep:site_crop_yr), data= Soybean1, beta_family(link="logit"))
 
 Anova(sb_canopy)
 #all 3 main fixed effects significant and the soil:site-year interaction
 ```
+Means were separated for the Soil management:site-year interaction and herbicide 
+treatment fixed effect separately. I delayed presenting the results until comparison to the separated analysis later on.
 
-```{r}
+```{r, include= FALSE, echo= FALSE}
 sb_canopy_herbemmeans = emmeans(sb_canopy, ~ herb, contr= "pairwise", adjust= "none", type= "response")
 sb_canopy_herbCLD = CLD(sb_canopy_herbemmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
@@ -607,15 +254,48 @@ sb_canopy_soilCLD <- as_tibble(sb_canopy_soilCLD) %>%
   arrange(soil)
 ```
 
+```{r, echo= FALSE, include= FALSE}
+sb_canopy <- ggplot(sb_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 12) +
+  geom_jitter(data = Soybean1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
+  #coord_flip() +
+  facet_wrap(~site_crop_yr) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none") +
+  labs(title = "Soybean Canopy")
 
+```
 
-### Arlington Soy Canopy
-```{r}
+```{r, echo= FALSE, include= FALSE}
+sb_canopyherb <- ggplot(sb_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, color= herb)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 4) +
+  geom_jitter(data = Soybean1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
+  #coord_flip() +
+  #facet_grid(year~location) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none") +
+  labs(title = "Soybean Canopy")
+#Models below in comparison
+```
+
+## Separated analysis for each site-year
+Only first model displayed
+```{r,}
+#Beginning of analysis for separate site-year models
+
 arl19_soy_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Soybean1, site_crop_yr == "Arlington 2019")), beta_family(link="logit"))
 
 Anova(arl19_soy_can)
 #Soil and herb fixed effects significant
+```
 
+```{r, include = FALSE, echo = FALSE}
 arl20_soy_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Soybean1, site_crop_yr == "Arlington 2020")), beta_family(link="logit"))
 
 Anova(arl20_soy_can)
@@ -656,9 +336,7 @@ arl20_soy_canherbCLD <- as_tibble(arl20_soy_canherbCLD) %>%
   arrange(herb)
 ```
 
-
-### Lancaster Soy Canopy
-```{r}
+```{r, include= FALSE, echo= FALSE}
 lan19_soy_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Soybean1, site_crop_yr == "Lancaster 2019")), beta_family(link="logit"))
 
 Anova(lan19_soy_can)
@@ -669,7 +347,6 @@ lan20_soy_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (fi
 Anova(lan20_soy_can)
 #nothing significant
 ```
-
 
 ```{r, echo= FALSE, include= FALSE}
 lan19_soy_can_lsmeans= emmeans(lan19_soy_can ,~ soil, contr="pairwise", adjust="none", type="response")
@@ -705,9 +382,7 @@ lan20_soy_canherbCLD <- as_tibble(lan20_soy_canherbCLD) %>%
   arrange(herb)
 ```
 
-
-### Havelock Soy Canopy
-```{r}
+```{r, include= FALSE, echo= FALSE}
 hav19_soy_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Soybean1, site_crop_yr == "Havelock 2019")), beta_family(link="logit"))
 
 Anova(hav19_soy_can)
@@ -803,26 +478,7 @@ sbcanopy2<- rbind(hav19_soy_canherbCLD, sbcanopy2)
 sbcanopy2<- rbind(hav20_soy_canherbCLD, sbcanopy2)
 ```
 
-
-
-```{r}
-sb_canopy <- ggplot(sb_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= soil)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 12) +
-  geom_jitter(data = Soybean1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
-  #coord_flip() +
-  facet_wrap(~site_crop_yr) +
-  theme_bw() +
-  scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Soybean Canopy")
-
-```
-
-
-
-```{r}
+```{r, echo= FALSE, include= FALSE}
 sb_canopy1 <- ggplot(sbcanopy, aes(x= soil, y= crop_canopy*100, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
@@ -834,27 +490,13 @@ sb_canopy1 <- ggplot(sbcanopy, aes(x= soil, y= crop_canopy*100, color= soil)) +
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none") +
   labs(title = "Soybean Canopy")
+
+
 ```
 
-Results are very similar for all site-years with the soybean canopy models. 
 
 
-
-```{r}
-sb_canopyherb <- ggplot(sb_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, color= herb)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 4) +
-  geom_jitter(data = Soybean1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
-  #coord_flip() +
-  #facet_grid(year~location) +
-  theme_bw() +
-  scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Soybean Canopy")
-```
-
-```{r}
+```{r, echo= FALSE, include= FALSE}
 sb_canopyherb1 <- ggplot(sbcanopy2, aes(x= herb, y= crop_canopy*100, color= herb)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
@@ -866,14 +508,355 @@ sb_canopyherb1 <- ggplot(sbcanopy2, aes(x= herb, y= crop_canopy*100, color= herb
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none") +
   labs(title = "Soybean Canopy")
+
+### end of analysis with separate models for each site-year
 ```
 
 
-In the analysis with separate models for every site-year it seems weird that the control trt ends up with a lower canopy coverage compared to some of the herbicide trts at Havelock 2019. Personally I prefer the simplified analyses with one model for all site-years to keep things straightforward.
+
+## Comparison of Canopy Coverage Analysis Approaches
+
+### Separated
+```{r, echo= FALSE, include= FALSE}
+separated<- {sb_canopy + sb_canopyherb1}+
+  plot_annotation(title = 'Soybean Canopy Coverage',
+  subtitle = "Separated Analysis",
+  theme = theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))) & 
+  theme(plot.title = element_text("serif"))
+```
+```{r, fig.height= 6, fig.width= 12}
+separated
+```
 
 
 
-# Cover Crop Biomass analysis
+### Composite
+```{r, echo= FALSE, include= FALSE}
+composite1<- {sb_canopy + sb_canopyherb}+
+  plot_annotation(title = 'Soybean Canopy Coverage',
+  subtitle = "Composite Analysis",
+  theme = theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))) & 
+  theme(plot.title = element_text("serif"))
+```
+
+```{r,fig.height= 6, fig.width= 12}
+composite1
+```
+
+
+Results are very similar for all site-years with the soybean canopy models.  
+
+
+In the analysis with separate models for every site-year it seems weird that the control trt has
+a lower canopy coverage compared to some of the herbicide trts at Havelock 2019. 
+
+Personally I prefer the simplified analyses with one model for all site-years 
+to keep things straightforward, especially for the herbicide results.
+
+
+# Soybean Yield Analysis
+
+```{r}
+Soybean1 %>%
+  ggplot(aes(x = soil, y = yield, color = location)) +
+  geom_boxplot() +
+  facet_grid(crop ~ year)
+```
+It appears as if there are similar trends and yield within a location across years.
+I will proceed with performing a separate analysis for each location.
+
+
+
+### Arlington Analysis
+
+Only going to show the first model. Repeated for each location
+```{r, fig.show= 'hide'}
+arl_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Arlington")))
+
+qqnorm(resid(arl_sb_yield))
+
+plot(arl_sb_yield)
+#assumptions look good
+```
+
+```{r,}
+anova(arl_sb_yield)
+#nothing significant
+```
+
+
+### Lancaster Analysis
+```{r, include= FALSE, echo= FALSE}
+lan_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Lancaster")))
+
+qqnorm(resid(lan_sb_yield))
+
+plot(lan_sb_yield)
+#assumptions look good
+```
+
+```{r}
+anova(lan_sb_yield)
+#Soil management fixed effect significant
+```
+
+### Havelock Analysis
+```{r, include= FALSE, echo= FALSE}
+hav_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Havelock")))
+
+qqnorm(resid(hav_sb_yield))
+
+plot(hav_sb_yield)
+#assumptions look good
+```
+
+```{r}
+anova(hav_sb_yield)
+#nothing significant
+```
+
+
+```{r, echo= FALSE, include= FALSE}
+arl_sb_lsmeans<- lsmeans(arl_sb_yield, ~ soil, contr="pairwise", adjust="none")
+
+arl_sb_cld <- cld(arl_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+arl_sb_cld <- as_tibble(arl_sb_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r, echo= FALSE, include= FALSE}
+lan_sb_lsmeans<- lsmeans(lan_sb_yield, ~ soil, contr="pairwise", adjust="none")
+
+lan_sb_cld <- cld(lan_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan_sb_cld <- as_tibble(lan_sb_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r, echo= FALSE, include= FALSE}
+hav_sb_lsmeans<- lsmeans(hav_sb_yield, ~ soil, contr="pairwise", adjust="none")
+
+hav_sb_cld <- cld(hav_sb_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+hav_sb_cld <- as_tibble(hav_sb_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r, echo= FALSE, include= FALSE}
+sbyield= data.frame()
+
+arl_sb_cld$location= c("Arlington")
+lan_sb_cld$location= c('Lancaster')
+hav_sb_cld$location= c('Havelock')
+
+sbyield<- rbind(arl_sb_cld, sbyield)
+sbyield<- rbind(lan_sb_cld, sbyield)
+sbyield<- rbind(hav_sb_cld, sbyield)
+```
+
+```{r, echo= FALSE, include= FALSE}
+y2<- ggplot(sbyield, aes(x= soil, y= yield, color= soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 800) +
+  geom_jitter(data = Soybean1 ,mapping = aes(y = yield), alpha = 0.2) +
+  #coord_flip() +
+  facet_grid(~location) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none") +
+  labs(title = "Soybean Yield")
+```
+
+## Soybean Yield Figure
+```{r}
+y2
+```
+Lancaster had reduced yield for the cover crop soil management treatment. If you look back to
+the analysis we did on stand counts you can see that this treatment had the lowest mean
+early-season stand count at Lancaster both years.
+
+Now to see if the yield components explain more.
+
+
+# Soybean Yield Components
+
+Based on issues with storage and seed damage in 2019, the only data I feel comfortable with
+using for 2019 yield components are the pod counts. Even the seed counts seem suspiciously 
+low for 2019 so seeds per pod is probably useless for 2019.
+
+```{r}
+#SoybeanComp1 %>%
+  #ggplot(aes(x = Soil, y = Total, color = Soil)) +
+  #geom_boxplot() +
+  #facet_grid(~ Site_Yr)
+
+#Plot of Soybean seed density (Hundred weight)
+SoybeanComp1 %>%
+  ggplot(aes(x = Soil, y = Hundred, color = Soil)) +
+  geom_boxplot() +
+  facet_grid(~ Site_Yr)
+
+#Plot of Soybean seed counts
+SoybeanComp %>%
+  ggplot(aes(x = Soil, y = Seeds, color = Soil)) +
+  geom_boxplot() +
+  facet_grid(~ Site_Yr)
+#All of the 2019 data is lower, I am not confident in using it.
+
+#Plot of Soybean pods per plant
+SoybeanComp %>%
+  ggplot(aes(x = Soil, y = Pods.Plant, color = Soil)) +
+  geom_boxplot() +
+  facet_grid(~ Site_Yr)
+
+#Plot of Soybean seeds per pod
+SoybeanComp1 %>%
+  ggplot(aes(x = Soil, y = Seeds.Pod, color = Soil)) +
+  geom_boxplot() +
+  facet_grid(~ Site_Yr)
+```
+
+I decided to only analyse models for the lancaster location. I have done more analysis
+on these yield components looking at site-year but they aren't really useful if we can't
+compare them to yield so I am not sharing them with this document. Remember,
+we are trying to explain reduced yield from soil management with a cover crop at Lancaster.
+I made models for all locations for fun though.
+
+## Pods per plant 
+
+```{r, fig.show='hide'}
+lan_SBPods_Plant= lmer(Pods.Plant~Soil*Herb+ (1|Rep/Year) , data= (filter(SoybeanComp, Location == "Lancaster")))
+qqnorm(resid(lan_SBPods_Plant))
+plot(lan_SBPods_Plant)
+#assumptions met
+
+```
+
+```{r,}
+anova(lan_SBPods_Plant)
+#nothing significant, soil almost significant
+```
+
+```{r,}
+lan_pod_plantlsmeans<- lsmeans(lan_SBPods_Plant, ~ Soil, contr="pairwise", adjust="none")
+
+lan_pod_plantcld <- cld(lan_pod_plantlsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan_pod_plantcld <- as_tibble(lan_pod_plantcld) %>% 
+  rename(Pods.Plant = lsmean) %>%
+  mutate(Soil= factor(Soil, levels= order)) %>%
+  arrange(Soil)
+
+lan_pod_plantcld
+```
+
+
+## Seed density 
+
+```{r, fig.show='hide'}
+lan_dens= lmer(Hundred~Soil*Herb+ (1|Rep) , data= (filter(SoybeanComp1, Location == "Lancaster")))
+qqnorm(resid(lan_dens))
+plot(lan_dens)
+#assumptions met
+
+```
+
+```{r,}
+anova(lan_dens)
+#nothing significant
+```
+
+```{r,}
+lan_denslsmeans<- lsmeans(lan_dens, ~ Soil, contr="pairwise", adjust="none")
+
+lan_denscld <- cld(lan_denslsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan_denscld <- as_tibble(lan_denscld) %>% 
+  rename(Hundred = lsmean) %>%
+  mutate(Soil= factor(Soil, levels= order)) %>%
+  arrange(Soil)
+
+lan_denscld 
+```
+
+## Seed Counts 
+
+```{r, fig.show='hide'}
+lan_seeds= lmer(Seeds~Soil*Herb+ (1|Rep) , data= (filter(SoybeanComp1, Location == "Lancaster")))
+qqnorm(resid(lan_seeds))
+plot(lan_seeds)
+#assumptions met
+
+```
+
+```{r}
+anova(lan_seeds)
+#nothing significant
+```
+
+```{r}
+lan_seedslsmeans<- lsmeans(lan_seeds, ~ Soil, contr="pairwise", adjust="none")
+
+lan_seedscld <- cld(lan_seedslsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan_seedscld <- as_tibble(lan_seedscld) %>% 
+  rename(Seeds = lsmean) %>%
+  mutate(Soil= factor(Soil, levels= order)) %>%
+  arrange(Soil)
+
+lan_seedscld
+```
+
+## Soybean Seeds/Pod
+```{r, fig.show='hide'}
+lan_seeds_pod= lmer(Seeds.Pod~Soil*Herb+ (1|Rep) , data= (filter(SoybeanComp1, Location == "Lancaster")))
+qqnorm(resid(lan_seeds_pod))
+plot(lan_seeds_pod)
+#assumptions met
+
+```
+
+```{r}
+anova(lan_seeds_pod)
+#nothing significant
+```
+
+```{r}
+lan_seeds_podlsmeans<- lsmeans(lan_seeds_pod, ~ Soil, contr="pairwise", adjust="none")
+
+lan_seeds_podcld <- cld(lan_seeds_podlsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan_seeds_podcld <- as_tibble(lan_seeds_podcld) %>% 
+  rename(Seeds = lsmean) %>%
+  mutate(Soil= factor(Soil, levels= order)) %>%
+  arrange(Soil)
+
+lan_seeds_podcld
+```
+
+## Summary of yield components analysis
+
+There weren't any useful yield components to explain what we saw at Lancaster with reduced yield
+for the cover crop soil management treatment. I think the lowest mean stand count early-season is
+our best explanation. Only having 2020 data for most yield components didn't help this and if you
+look at the boxplots generated prior to the yield analysis the reduced yield appears to have 
+occurred in 2019. There was also reduced canopy cover for this treatment in 2019.
+
+
+# Cover crop analysis
+
+## Biomass analysis
+
 ```{r}
 SBCC %>%
   ggplot(aes(x = herb, y = biomass_kg, color = site)) +
@@ -883,7 +866,7 @@ SBCC %>%
 based on separations between locations and across years, I think it is appropriate to look for significant differences between site-years and separate means accordingly in CC biomass models.
 
 ### Soybean
-```{r}
+```{r, fig.show='hide'}
 sb_cc_bio= lmer(biomass_kg~ site_crop_yr * herb + (1|site_crop_yr:rep), data=SBCC)
 
 qqnorm(resid(sb_cc_bio))
@@ -894,14 +877,18 @@ sb_cc_bio1= lmer(sqrt(biomass_kg)~ site_crop_yr * herb + (1|site_crop_yr:rep), d
 
 qqnorm(resid(sb_cc_bio1))
 plot(sb_cc_bio1)
-#assumption improved. Maybe clean datapoint
-
-anova(sb_cc_bio1)
-#Site-year significant
+#assumption improved.
 ```
 
 
 ```{r}
+anova(sb_cc_bio1)
+#Site-year significant
+```
+
+There is no evidence that herbicide carryover reduced CC biomass.
+
+```{r, include= FALSE, echo= FALSE}
 sb_cc_lsmeans= emmeans(sb_cc_bio1 ,~ site_crop_yr, contr="pairwise", adjust="none", type="response")
 sb_ccCLD<- CLD(sb_cc_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
@@ -909,7 +896,7 @@ sb_ccCLD <- as_tibble(sb_ccCLD) %>%
  rename(biomass_kg = response)
 ```
 
-```{r}
+```{r, include= FALSE, echo= FALSE}
 Soy_CCbio= ggplot(sb_ccCLD, aes(x= site_crop_yr, y= biomass_kg, color= site_crop_yr)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
@@ -924,9 +911,14 @@ Soy_CCbio= ggplot(sb_ccCLD, aes(x= site_crop_yr, y= biomass_kg, color= site_crop
 ```
 
 
+## Cover Crop Canopy
 
-# Cover Crop Canopy
 
+
+```{r, include= FALSE, echo= FALSE}
+SBCC1 <- SBCC %>%
+  filter(!is.na(canopy))
+```
 
 ```{r}
 SBCC1 %>%
@@ -937,21 +929,19 @@ SBCC1 %>%
 
 Based on differences between location across growing seasons I thought it was best to proceed with testing site-year as a fixed effect.
 
-### Soybean
-```{r}
-SBCC1 <- SBCC %>%
-  filter(!is.na(canopy))
+
+```{r, fig.show='hide'}
+sb_cc_can= glmmTMB(canopy~ site_crop_yr*herb + (1|site_crop_yr:rep), data=SBCC, beta_family(link="logit"))
 ```
 
-
 ```{r}
-sb_cc_can= glmmTMB(canopy~ site_crop_yr*herb + (1|site_crop_yr:rep), data=SBCC, beta_family(link="logit"))
-
 Anova(sb_cc_bio)
 #Site-Year significant
 ```
+There is no evidence that herbicid carryover influenced cover crop canopy
 
-```{r}
+
+```{r, include= FALSE, echo= FALSE}
 sb_cc_can_lsmeans= emmeans(sb_cc_can ,~ site_crop_yr, contr="pairwise", adjust="none", type="response")
 sb_cc_canCLD<- CLD(sb_cc_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
@@ -960,7 +950,7 @@ sb_cc_canCLD <- as_tibble(sb_cc_canCLD) %>%
 ```
 
 
-```{r}
+```{r, include= FALSE, echo= FALSE}
 Soy_CCcan= ggplot(sb_cc_canCLD, aes(x= site_crop_yr, y= canopy*100, color= site_crop_yr)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
