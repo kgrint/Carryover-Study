@@ -146,7 +146,7 @@ plot(sb_stand)
 #Residuals are spread out evenly verticall and horizontally.
 #I am satisfied that this response variable has an evenly distributed variance.
 ```
-### Stand count ANOVA
+
 ```{r}
 anova(sb_stand)
 #site-year fixed effect significant.
@@ -531,7 +531,7 @@ separated
 
 
 
-### Composite
+### Condensed
 ```{r, echo= FALSE, include= FALSE}
 composite1<- {sb_canopy + sb_canopyherb}+
   plot_annotation(title = 'Soybean Canopy Coverage',
@@ -541,7 +541,7 @@ composite1<- {sb_canopy + sb_canopyherb}+
   theme(plot.title = element_text("serif"))
 ```
 
-```{r,fig.height= 6, fig.width= 12}
+```{r, echo= FALSE, fig.height= 6, fig.width= 12}
 composite1
 ```
 

@@ -21,7 +21,7 @@ library(multcomp)
 ```
 
 
-```{r, include = FALSE, echo = FALSE}
+```{r, include = FALSE}
 getwd()
 
 Corn= read.csv(file="Corn_MasterData.csv")
@@ -41,7 +41,7 @@ Corn$Year= factor(Corn$Year)
 ```
 
 
-```{r,include = FALSE, echo = FALSE}
+```{r,include = FALSE}
 Corn1 <- Corn %>% 
   mutate(Rep = as_factor(Rep),
          Year = as_factor(Year),
@@ -97,9 +97,19 @@ CornComp= CornComp %>%
   filter(!is.na(Seeds))
 
 ```
+# Analysis Procedure
+
+Prior to analysis I took the approach of plotting the response variables with box-plots to visualize treatment differences with soil management between locations. The intention of this was to visualize the differences between locations as well determine if I feel comfortable pooling things within a location (not testing for a site-year or year effect). This has been the desired direction to simplify results for publication. When I didn't feel the data allowed for this I tested for differences between site-years in a condensed model. This approach is up for more discussion, as it eliminates the potential to view anomalies in the data which might be insightful and scientifically interesting. We are assuming editors won't like complex findings.
 
 
-# Stand Counts
+I would also like to point out that for every linear-mixed-effects model I am testing to see that the model meets the visual assumptions for normal distribution of residual and evenly distributed variance. I will demonstrate for the first model, and only include it in the output for future analyses when it is suspected that transformations need to be made.
+
+More analyses were made than are going to be included in this pdf. I chose not to include them all so as to condense the output to the approach and considerations that I think are most valuable for the publication.
+
+## Removing the Arlington 2020 Site-year
+After some consideration and evaluating some analyses we decided to remove the Arlington 2020 site-year for corn from all analyses. There was an establishment issue with this site-year (Kolby used the wrong map to lay out herbicide treatments) and a suspected fertility misapplication that reduced yield for part of the trial.
+
+# Early Season Stand Counts
 
 ```{r, fig.width= 12, fig.height= 6}
 Corn1 %>%
@@ -118,11 +128,12 @@ Corn1 %>%
 
 Based on these visual representations it doesn't appear to me that there are really any consistent patterns as a function of soil management, herbicide treatment, location, or year. There does appear to be differences in location across seasons. Therefore, I think it is best if we test for site-year differences as a fixed effect in models for our initial approach and separate means by site-year where appropriate.
 
-```{r, echo= FALSE, include= FALSE}
+```{r, include= FALSE}
 Corn1 <- Corn1 %>%
   filter(!site_crop_yr == "Arlington 2020")
 ```
 
+## Condensed Stand Count Model
 ```{r}
 cn_stand= lmer(stand_count ~ site_crop_yr*soil*herb + (1|site_crop_yr:rep), data= Corn1)
 
@@ -134,9 +145,9 @@ plot(cn_stand)
 anova(cn_stand)
 #site-year significant
 ```
+Herbicide carryover and soil management had no effect on early season stand counts in corn.
 
-
-```{r, echo= FALSE, include= FALSE}
+```{r, include= FALSE}
 cn_stand_lsmeans= lsmeans(cn_stand,~ site_crop_yr, contr="pairwise", adjust="none", type="response")
 cn_standCLD<- CLD(cn_stand_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
@@ -153,7 +164,7 @@ cn_standCLD <- as_tibble(cn_standCLD) %>%
 
 
 
-```{r}
+```{r, echo= FALSE}
 ggplot(cn_standCLD, aes(x= site_crop_yr, y= stand_count, color= site_crop_yr)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
@@ -165,15 +176,363 @@ ggplot(cn_standCLD, aes(x= site_crop_yr, y= stand_count, color= site_crop_yr)) +
   theme(legend.position = "none") +
   labs(title = "Corn Stand Counts")
 ```
-Lancaster Stand counts should be closer to 80,000 and Havelock should be closer to 79,000
+Wisconsin Stand counts should be closer to 80,000 and Havelock should be closer to 79,000
 
+
+# Corn Canopy
+
+```{r}
+Corn1 %>%
+  ggplot(aes(x = soil, y = crop_canopy, color = location)) +
+  geom_boxplot() +
+  facet_grid(crop ~ year)
+```
+Based on the variability in canopy coverage between cropping seasons within a location, 
+I created a condensed model, similar to the stand count model, with site-year as 
+a fixed effect.
+
+I also decided to perform the analysis using a separate model for each site-year. 
+The first model and figures resulting from this analysis will also be displayed.
+
+## Condensed analysis
+```{r}
+cn_canopy = glmmTMB(crop_canopy~ soil*herb*site_crop_yr + (1|rep:site_crop_yr), data= Corn1, beta_family(link="logit"))
+#no assumptions to meet.
+
+Anova(cn_canopy)
+#all 3 main fixed effects significant and the soil:site-year interaction
+```
+
+```{r, include= FALSE}
+cn_canopy_herbemmeans = emmeans(cn_canopy, ~ herb, contr= "pairwise", adjust= "none", type= "response")
+cn_canopy_herbCLD = CLD(cn_canopy_herbemmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+cn_canopy_herbCLD <- as_tibble(cn_canopy_herbCLD) %>%
+  rename(crop_canopy = response) %>%
+  mutate(herb= factor(herb, levels= order1)) %>%
+  arrange(herb)
+
+cn_canopy_soilemmeans = emmeans(cn_canopy, ~ soil|site_crop_yr, contr= "pairwise", adjust= "none", type= "response")
+cn_canopy_soilCLD = CLD(cn_canopy_soilemmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+cn_canopy_soilCLD <- as_tibble(cn_canopy_soilCLD) %>%
+  rename(crop_canopy = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r, include= FALSE}
+cn_canopyherb <- ggplot(cn_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, color= herb)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 12) +
+  geom_jitter(data = Corn1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
+  #coord_flip() +
+  #facet_wrap(~site_crop_yr) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none") +
+  labs(title = "Corn Canopy")
+```
+
+
+```{r, include= FALSE}
+cn_canopy <- ggplot(cn_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 12) +
+  geom_jitter(data = Corn1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
+  #coord_flip() +
+  facet_wrap(~site_crop_yr) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none") +
+  labs(title = "Corn Canopy")
+```
+
+## Separated analysis for each site-year
+Just showing the first one and then hiding later ones.
+```{r,}
+#begining of analysis with new model for each site-year
+arl19_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Arlington 2019")), beta_family(link="logit"))
+
+Anova(arl19_corn_can)
+#Soil was significant
+```
+
+```{r, include= FALSE}
+arl19_corn_can_lsmeans= emmeans(arl19_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
+arl19_corn_canCLD<- CLD(arl19_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+arl19_corn_canCLD <- as_tibble(arl19_corn_canCLD) %>%
+  rename(crop_canopy = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+
+```{r, include= FALSE}
+lan19_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Lancaster 2019")), beta_family(link="logit"))
+
+Anova(lan19_corn_can)
+#Soil was significant
+
+lan20_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Lancaster 2020")), beta_family(link="logit"))
+
+Anova(lan20_corn_can)
+#Soil was significant
+```
+
+
+```{r, include= FALSE}
+lan19_corn_can_lsmeans= emmeans(lan19_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
+lan19_corn_canCLD<- CLD(lan19_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan19_corn_canCLD <- as_tibble(lan19_corn_canCLD) %>%
+  rename(crop_canopy = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+
+lan20_corn_can_lsmeans= emmeans(lan20_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
+lan20_corn_canCLD<- CLD(lan20_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan20_corn_canCLD <- as_tibble(lan20_corn_canCLD) %>%
+  rename(crop_canopy = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+
+```{r, include= FALSE}
+hav19_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Havelock 2019")), beta_family(link="logit"))
+
+Anova(hav19_corn_can)
+#soil management fixed effect was significant
+
+hav20_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Havelock 2020")), beta_family(link="logit"))
+
+Anova(hav20_corn_can)
+#nothing was significant
+```
+
+```{r, include= FALSE}
+hav19_corn_can_lsmeans= emmeans(hav19_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
+hav19_corn_canCLD<- CLD(hav19_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+hav19_corn_canCLD <- as_tibble(hav19_corn_canCLD) %>%
+ rename(crop_canopy = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+
+hav20_corn_can_lsmeans= emmeans(hav20_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
+hav20_corn_canCLD<- CLD(hav20_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+hav20_corn_canCLD <- as_tibble(hav20_corn_canCLD) %>%
+ rename(crop_canopy = response) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r, include= FALSE}
+cncanopy= data.frame()
+
+arl19_corn_canCLD$location= c("Arlington")
+lan19_corn_canCLD$location= c("Lancaster")
+lan20_corn_canCLD$location= c("Lancaster")
+hav19_corn_canCLD$location= c("Havelock")
+hav20_corn_canCLD$location= c("Havelock")
+
+arl19_corn_canCLD$year= c("2019")
+lan19_corn_canCLD$year= c("2019")
+lan20_corn_canCLD$year= c("2020")
+hav19_corn_canCLD$year= c("2019")
+hav20_corn_canCLD$year= c("2020")
+
+cncanopy<- rbind(arl19_corn_canCLD, cncanopy)
+cncanopy<- rbind(lan19_corn_canCLD, cncanopy)
+cncanopy<- rbind(lan20_corn_canCLD, cncanopy)
+cncanopy<- rbind(hav19_corn_canCLD, cncanopy)
+cncanopy<- rbind(hav20_corn_canCLD, cncanopy)
+```
+
+
+```{r, include= FALSE}
+cn_canopy1 <- ggplot(cncanopy, aes(x= soil, y= crop_canopy*100, color= soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 12) +
+  geom_jitter(data = Corn1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
+  #coord_flip() +
+  facet_grid(year~location) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none") +
+  labs(title = "Corn Canopy")
+```
+
+## Comparison of canopy coverage analysis approaches
+
+### Separated
+
+```{r, echo= FALSE}
+cn_canopy1
+```
+
+### Condensed
+
+```{r, include= FALSE}
+composite1<- {cn_canopy + cn_canopyherb}+
+  plot_annotation(title = 'Corn Canopy Coverage',
+  subtitle = "Condensed Analysis",
+  theme = theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))) & 
+  theme(plot.title = element_text("serif"))
+```
+
+```{r, echo= FALSE, fig.height= 6, fig.width= 12}
+composite1
+```
+
+There were slight differences in the Lancaster 2019 site-year results between analysis approaches. The separated approach didn't show that herbicide treatment had a significant effect on canopy coverage but in the composite approach there was reduced coverage for the imazethapyr half-rate treatment, although not significantly different from the control treatment. I prefer the results from the composite approach, similar to my selection in soybean.
+
+
+# Corn Yield
+
+```{r}
+Corn1 %>%
+  ggplot(aes(x = herb, y = yield, color = herb)) +
+  geom_boxplot() +
+  facet_grid(location ~ year)
+```
+
+```{r}
+Corn1 %>%
+  ggplot(aes(x = soil, y = yield, color = location)) +
+  geom_boxplot() +
+  facet_grid(crop ~ year)
+```
+Doesn't appear as if herbicides are likely having any effect on corn yield. It does appear that there are similar trends and yield within a location across years. I will proceed with performing a separate analysis for each location.
+
+### Arlington 2019 Analysis
+Only going to show the first model. Repeated for each location.
+```{r, fig.show= 'hide'}
+arlcn_yield1= lmer(yield~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Arlington 2019")))
+
+qqnorm(resid(arlcn_yield1))
+
+plot(arlcn_yield1)
+#assumptions look good
+```
+
+```{r}
+anova(arlcn_yield1)
+#soil managment fixed effect significant
+```
+
+### Lancaster Analysis
+```{r, include= FALSE}
+lancn_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Lancaster")))
+
+qqnorm(resid(lancn_yield))
+
+plot(lancn_yield)
+#assumptions look good
+```
+
+```{r}
+anova(lancn_yield)
+#Soil management fixed effect significant
+```
+
+
+### Havelock Analysis
+```{r, include= FALSE}
+havcn_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Havelock")))
+#from my understanding the "boundary (singular) fit: see ?isSingular" error means that the estimate of error between random effects, in this case rep/year is almost zero, meaning there isn't a lot of random variability?
+
+qqnorm(resid(havcn_yield))
+
+plot(havcn_yield)
+#assumptions look good
+```
+
+```{r}
+anova(havcn_yield)
+#soil management significant
+```
+
+
+```{r, include= FALSE}
+arl_cn_lsmeans<- lsmeans(arlcn_yield1, ~ soil, contr="pairwise", adjust="none")
+
+arl_cn_cld <- cld(arl_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+arl_cn_cld <- as_tibble(arl_cn_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r, include= FALSE}
+lan_cn_lsmeans<- lsmeans(lancn_yield, ~ soil, contr="pairwise", adjust="none")
+
+lan_cn_cld <- cld(lan_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+lan_cn_cld <- as_tibble(lan_cn_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+```{r, include= FALSE}
+hav_cn_lsmeans<- lsmeans(havcn_yield, ~ soil, contr="pairwise", adjust="none")
+
+hav_cn_cld <- cld(hav_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
+
+hav_cn_cld <- as_tibble(hav_cn_cld) %>% 
+  rename(yield = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
+  arrange(soil)
+```
+
+
+```{r, include= FALSE}
+arl_cn_cld$location= c("Arlington")
+lan_cn_cld$location= c('Lancaster')
+hav_cn_cld$location= c('Havelock')
+
+cnyield<- rbind(arl_cn_cld, cnyield)
+cnyield<- rbind(lan_cn_cld, cnyield)
+cnyield<- rbind(hav_cn_cld, cnyield)
+```
+
+```{r, include = FALSE}
+y1<- ggplot(cnyield, aes(x= soil, y= yield, color= soil)) +
+  geom_point(size= 3) +
+  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
+  geom_text(aes(label = .group), nudge_y = 2200) +
+  geom_jitter(data = Corn1 ,mapping = aes(y = yield), alpha = 0.2) +
+  #coord_flip() +
+  facet_grid(~location) +
+  theme_bw() +
+  scale_color_brewer(palette = "Dark2") +
+  theme(legend.position = "none") +
+  labs(title = "Corn Yield")
+```
+
+```{r, echo= FALSE}
+y1
+```
+No impact on crop yield from herbicides. All three location had reduced yield for the CC treatment. Havelock and Lancaster showed reduced yield for the no-till treatment as well.
+
+Now to see if the yield components explain more.
 
 # Corn Yield Components
 
-```{r}
-CornComp %>% 
-  ggplot(aes(x =Total)) +
-  geom_density()
+```{r, include= FALSE}
+#CornComp %>% 
+  #ggplot(aes(x =Total)) +
+  #geom_density()
 
 CornComp %>% 
   ggplot(aes(x =Hundred)) +
@@ -186,33 +545,29 @@ CornComp %>%
 
 
 ```{r}
-CornComp %>%
-  ggplot(aes(x = Soil, y = Total, color = Soil)) +
-  geom_boxplot() +
-  facet_grid(~ Site_Yr)
+#CornComp %>%
+  #ggplot(aes(x = Soil, y = Total, color = Soil)) +
+  #geom_boxplot() +
+  #facet_grid(~ Site_Yr)
 
+#Plot of seed density
 CornComp %>%
   ggplot(aes(x = Soil, y = Hundred, color = Soil)) +
   geom_boxplot() +
   facet_grid(~ Site_Yr)
 
+#Plot of seed counts
 CornComp %>%
   ggplot(aes(x = Soil, y = Seeds, color = Soil)) +
   geom_boxplot() +
   facet_grid(~ Site_Yr)
 ```
 
-Based on these figures I think it would be appropriate to conduct analyses for each location separately.
+Based on these figures I think it would be appropriate to conduct analyses for each location separately similar to how yield was done.
 
+### All yield component Figures will be included at the end of this section.
 
-# Corn Total Sample Mass
-
-
-## Analysis by Location
-
-### Arlington
-
-```{r}
+```{r, include= FALSE}
 arl_CNTotal= lmer(Total~ Soil*Herb + (1|Rep) , data= (filter(CornComp, Location == "Arlington" )))
 qqnorm(resid(arl_CNTotal))
 plot(arl_CNTotal)
@@ -221,8 +576,8 @@ plot(arl_CNTotal)
 anova(arl_CNTotal)
 #Nothing significant
 ```
-### Lancaster
-```{r}
+
+```{r, include= FALSE}
 lan_CNTotal= lmer(Total~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Lancaster" )))
 qqnorm(resid(lan_CNTotal))
 plot(lan_CNTotal)
@@ -232,8 +587,7 @@ anova(lan_CNTotal)
 #Soil significant
 ```
 
-### Havelock
-```{r}
+```{r, include= FALSE}
 hav_CNTotal= lmer(Total~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Havelock" )))
 qqnorm(resid(hav_CNTotal))
 plot(hav_CNTotal)
@@ -307,8 +661,9 @@ CNTotal_site<- ggplot(cn_Total, aes(x= Soil, y= Total, color= Soil)) +
 
 
 
-## Condensed analysis ---- Not included in pdf
+
 ```{r, include = FALSE, echo = FALSE}
+#Condensed analysis for total sample mass.
 CNTotal= lmer(Total~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=CornComp)
 qqnorm(resid(CNTotal))
 plot(CNTotal)
@@ -320,13 +675,12 @@ plot(CNTotal1)
 #slightly improved on normality maybe. I think I will leave it untransformed since transformation isn't fitting of data type.
 ```
 
-### ANOVA of untransformed corn total sample mass model
+
 ```{r, include = FALSE, echo = FALSE}
 anova(CNTotal)
 #2-way interaction between SIte-year and soil. Site-year and soil management main effects also significant.
 ```
 
-### Corn total sample means comparison for Soil:Site-Year interaction
 ```{r, echo= FALSE, include= FALSE}
 CNTotMeans= lsmeans(CNTotal, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
 CLD1= CLD(CNTotMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
@@ -350,38 +704,42 @@ CNTotal
 
 ## Corn Seed Density
 
-## Analysis by Location
-
 ### Arlington
-
-```{r}
+Only chose to show the first model
+```{r, fig.show='hide'}
 arl_CNHun= lmer(Hundred~ Soil*Herb + (1|Rep) , data= (filter(CornComp, Location == "Arlington" )))
 qqnorm(resid(arl_CNHun))
 plot(arl_CNHun)
 #Assumptions met
+```
 
+```{r}
 anova(arl_CNHun)
 #Soil Significant
 ```
 
 ### Lancaster
-```{r}
+```{r, include= FALSE}
 lan_CNHun= lmer(Hundred~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Lancaster" )))
 qqnorm(resid(lan_CNHun))
 plot(lan_CNHun)
 #Assumptions met
+```
 
+```{r}
 anova(lan_CNHun)
 #Soil significant
 ```
 
 ### Havelock
-```{r}
+```{r, include= FALSE}
 hav_CNHun= lmer(Hundred~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Havelock" )))
 qqnorm(resid(hav_CNHun))
 plot(hav_CNHun)
 #Assumptions met
+```
 
+```{r}
 anova(hav_CNHun)
 #Soil significant
 ```
@@ -450,22 +808,23 @@ CNHundred_site<- ggplot(cn_Hundred, aes(x= Soil, y= Hundred, color= Soil)) +
 ```
 
 
-## Condensed Analysis----- not included in pdf
+
 
 ```{r, include = FALSE, echo = FALSE }
+## Condensed Analysis----- not included in pdf
 CNHundred= lmer(Hundred~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=CornComp)
 qqnorm(resid(CNHundred))
 plot(CNHundred)
 #Assumptions for normality and equal variance satisfactorily met. Proceed with ANOVA.
 ```
 
-### ANOVA of untransformed Corn Seed Density Model
+
 ```{r, include = FALSE, echo = FALSE }
 anova(CNHundred)
 #2-way interaction between SIte-year and soil. Site-year and soil management main effects also significant.
 ```
 
-### Corn total sample means comparison for Soil:Site-Year interaction
+
 ```{r, include = FALSE, echo = FALSE }
 CNHundredMeans= lsmeans(CNHundred, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
 CLD2= CLD(CNHundredMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
@@ -492,34 +851,40 @@ CNSeedDensity
 ## Analysis by Location
 
 ### Arlington
-
-```{r}
+Showing first model only
+```{r, echo= FALSE}
 arl_Seeds= lmer(Seeds~ Soil*Herb + (1|Rep) , data= (filter(CornComp, Location == "Arlington" )))
 qqnorm(resid(arl_Seeds))
 plot(arl_Seeds)
 #Assumptions met
+```
 
+```{r}
 anova(arl_Seeds)
 #Nothing Significant
 ```
 ### Lancaster
-```{r}
+```{r, include=FALSE}
 lan_Seeds= lmer(Seeds~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Lancaster" )))
 qqnorm(resid(lan_Seeds))
 plot(lan_Seeds)
 #Normality slightly questionable, Equal variance good
+```
 
+```{r}
 anova(lan_Seeds)
 #Soil significant
 ```
 
 ### Havelock
-```{r}
+```{r, include= FALSE}
 hav_Seeds= lmer(Seeds~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Havelock" )))
 qqnorm(resid(hav_Seeds))
 plot(hav_Seeds)
 #Assumptions met
+```
 
+```{r}
 anova(hav_Seeds)
 #Nothing significant
 ```
@@ -588,9 +953,8 @@ CNSeeds_site<- ggplot(cn_Seeds, aes(x= Soil, y= Seeds, color= Soil)) +
 ```
 
 
-## Condensed Analysis------- Not included in pdf
-
 ```{r, include = FALSE, echo = FALSE }
+#Condensed Analysis------- Not included in pdf
 CNSeeds= lmer(Seeds~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=CornComp)
 qqnorm(resid(CNSeeds))
 plot(CNSeeds)
@@ -602,13 +966,12 @@ plot(CNSeeds1)
 #Assumption for normal distribution improved. This transformation doesn't really make sense for this data, so proceeded with first model.
 ```
 
-### ANOVA of untransformed Corn Seed Count Model
+
 ```{r, include = FALSE, echo = FALSE}
 anova(CNSeeds)
 #2-way interaction between SIte-year and soil. Site-year and soil management main effects also significant.
 ```
 
-### Corn seed count means comparison for Soil:Site-Year interaction
 ```{r, include = FALSE, echo = FALSE}
 CNSeedsMeans= lsmeans(CNSeeds, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
 CLD3= CLD(CNSeedsMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
@@ -629,335 +992,38 @@ CNSeeds= ggplot(CLD3, aes(x=Soil , y=lsmean, label= .group))+
 CNSeeds
 ```
 
-## Corn Yield Component Figures
 ```{r, include = FALSE, echo = FALSE}
 CNTotal
 CNSeedDensity
 CNSeeds
-```
-
-# Corn Yield
-
-```{r}
-Corn1 %>%
-  ggplot(aes(x = soil, y = yield, color = location)) +
-  geom_boxplot() +
-  facet_grid(crop ~ year)
+#End of condensed
 ```
 
 
-### Arlington 2019 Analysis ---- We decided to use only this site-year in the paper
-```{r}
-arlcn_yield1= lmer(yield~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Arlington 2019")))
+# Corn Yield Components to Yield comparison
+```{r, include= FALSE}
 
-qqnorm(resid(arlcn_yield1))
-
-plot(arlcn_yield1)
-#assumptions look good
-
-anova(arlcn_yield1)
-#soil managment fixed effect significant
+Yield_figure= {(CNSeeds_site|CNHundred_site)/y1}+
+  plot_annotation(title = 'Corn Yield Components - Yield',
+  subtitle = "",
+  theme = theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))) & 
+  theme(plot.title = element_text("serif"))
 ```
 
-### Lancaster Analysis
-```{r}
-lancn_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Lancaster")))
-
-qqnorm(resid(lancn_yield))
-
-plot(lancn_yield)
-#assumptions look good
-
-anova(lancn_yield)
-#Soil management fixed effect significant
+```{r, echo= FALSE, fig.height= 6, fig.width= 12}
+Yield_figure
 ```
 
-### Havelock Analysis
-```{r}
-havcn_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Havelock")))
-#from my understanding the "boundary (singular) fit: see ?isSingular" error means that the estimate of error between random effects, in this case rep/year is almost zero, meaning there isn't a lot of random variability?
+### Arlington
+When final grain yield was lowest for the cover crop soil management treatment, there was reduced seed density (also reduced density for the no-till treatment).
 
-qqnorm(resid(havcn_yield))
+### Havelock
+For the reduced final grain yield for the no-till and cover crop treatments, there was significantly lower seed density for the no-till treatment and (not significantly reduced) mean grain density for the cover crop treatment
 
-plot(havcn_yield)
-#assumptions look good
+### Lancaster
+For the reduced final grain yield for the no-till and cover crop treatments, there was significantly lower seed density for the no-till and cover crop treatments as well as  significantly lower seed counts.
 
-anova(havcn_yield)
-#soil management significant
-
-#summary(havcn_yield)
-
-```
-
-```{r, echo= FALSE, include= FALSE}
-arl_cn_lsmeans<- lsmeans(arlcn_yield1, ~ soil, contr="pairwise", adjust="none")
-
-arl_cn_cld <- cld(arl_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-arl_cn_cld <- as_tibble(arl_cn_cld) %>% 
-  rename(yield = lsmean) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-```{r, echo= FALSE, include= FALSE}
-lan_cn_lsmeans<- lsmeans(lancn_yield, ~ soil, contr="pairwise", adjust="none")
-
-lan_cn_cld <- cld(lan_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-lan_cn_cld <- as_tibble(lan_cn_cld) %>% 
-  rename(yield = lsmean) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-```{r, echo= FALSE, include= FALSE}
-hav_cn_lsmeans<- lsmeans(havcn_yield, ~ soil, contr="pairwise", adjust="none")
-
-hav_cn_cld <- cld(hav_cn_lsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-hav_cn_cld <- as_tibble(hav_cn_cld) %>% 
-  rename(yield = lsmean) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-
-```{r, echo= FALSE, include= FALSE}
-arl_cn_cld$location= c("Arlington")
-lan_cn_cld$location= c('Lancaster')
-hav_cn_cld$location= c('Havelock')
-
-cnyield<- rbind(arl_cn_cld, cnyield)
-cnyield<- rbind(lan_cn_cld, cnyield)
-cnyield<- rbind(hav_cn_cld, cnyield)
-```
-
-```{r, include = FALSE, echo = FALSE}
-y1<- ggplot(cnyield, aes(x= soil, y= yield, color= soil)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 2200) +
-  geom_jitter(data = Corn1 ,mapping = aes(y = yield), alpha = 0.2) +
-  #coord_flip() +
-  facet_grid(~location) +
-  theme_bw() +
-  scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Corn Yield")
-
-```
-
-# Corn Yield Component Figures
-```{r}
-CNTotal_site
-CNSeeds_site
-CNHundred_site
-```
-
-
-# Corn Yield Figure
-```{r}
-y1
-```
-
-
-## Corn Canopy
-
-
-```{r}
-Corn1 %>%
-  ggplot(aes(x = soil, y = crop_canopy, color = location)) +
-  geom_boxplot() +
-  facet_grid(crop ~ year)
-```
-
-
-### Condensed analysis
-```{r}
-cn_canopy = glmmTMB(crop_canopy~ soil*herb*site_crop_yr + (1|rep:site_crop_yr), data= Corn1, beta_family(link="logit"))
-
-Anova(cn_canopy)
-#all 3 main fixed effects significant and the soil:site-year interaction
-```
-
-```{r, echo= FALSE, include= FALSE}
-cn_canopy_herbemmeans = emmeans(cn_canopy, ~ herb, contr= "pairwise", adjust= "none", type= "response")
-cn_canopy_herbCLD = CLD(cn_canopy_herbemmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-cn_canopy_herbCLD <- as_tibble(cn_canopy_herbCLD) %>%
-  rename(crop_canopy = response) %>%
-  mutate(herb= factor(herb, levels= order1)) %>%
-  arrange(herb)
-
-cn_canopy_soilemmeans = emmeans(cn_canopy, ~ soil|site_crop_yr, contr= "pairwise", adjust= "none", type= "response")
-cn_canopy_soilCLD = CLD(cn_canopy_soilemmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-cn_canopy_soilCLD <- as_tibble(cn_canopy_soilCLD) %>%
-  rename(crop_canopy = response) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-```{r, echo= FALSE, include= FALSE}
-cn_canopyherb <- ggplot(cn_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, color= herb)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 12) +
-  geom_jitter(data = Corn1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
-  #coord_flip() +
-  #facet_wrap(~site_crop_yr) +
-  theme_bw() +
-  scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Corn Canopy")
-```
-
-
-```{r}
-cn_canopy <- ggplot(cn_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= soil)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 12) +
-  geom_jitter(data = Corn1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
-  #coord_flip() +
-  facet_wrap(~site_crop_yr) +
-  theme_bw() +
-  scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Corn Canopy")
-```
-
-## Figure with Soil:site-Years
-```{r}
-cn_canopy
-```
-
-## Figure with herbicide
-```{r}
-cn_canopyherb
-```
-
-# Canopy by Location --------- Chose to go with Condensed analysis
-### Arlington Corn Canopy
-```{r, echo= FALSE, include= FALSE}
-arl19_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Arlington 2019")), beta_family(link="logit"))
-
-Anova(arl19_corn_can)
-#Soil was significant
-```
-
-```{r, echo= FALSE, include= FALSE}
-arl19_corn_can_lsmeans= emmeans(arl19_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
-arl19_corn_canCLD<- CLD(arl19_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-arl19_corn_canCLD <- as_tibble(arl19_corn_canCLD) %>%
-  rename(crop_canopy = response) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-
-### Lancaster Corn Canopy
-```{r, echo= FALSE, include= FALSE}
-lan19_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Lancaster 2019")), beta_family(link="logit"))
-
-Anova(lan19_corn_can)
-#Soil was significant
-
-lan20_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Lancaster 2020")), beta_family(link="logit"))
-
-Anova(lan20_corn_can)
-#Soil was significant
-```
-
-
-```{r, echo= FALSE, include= FALSE}
-lan19_corn_can_lsmeans= emmeans(lan19_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
-lan19_corn_canCLD<- CLD(lan19_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-lan19_corn_canCLD <- as_tibble(lan19_corn_canCLD) %>%
-  rename(crop_canopy = response) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-
-lan20_corn_can_lsmeans= emmeans(lan20_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
-lan20_corn_canCLD<- CLD(lan20_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-lan20_corn_canCLD <- as_tibble(lan20_corn_canCLD) %>%
-  rename(crop_canopy = response) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-
-### Havelock Corn Canopy
-```{r, echo= FALSE, include= FALSE}
-hav19_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Havelock 2019")), beta_family(link="logit"))
-
-Anova(hav19_corn_can)
-#soil management fixed effect was significant
-
-hav20_corn_can = glmmTMB(crop_canopy~ soil*herb + (1|rep:site_crop_yr), data= (filter(Corn1, site_crop_yr == "Havelock 2020")), beta_family(link="logit"))
-
-Anova(hav20_corn_can)
-#nothing was significant
-```
-
-```{r, echo= FALSE, include= FALSE}
-hav19_corn_can_lsmeans= emmeans(hav19_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
-hav19_corn_canCLD<- CLD(hav19_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-hav19_corn_canCLD <- as_tibble(hav19_corn_canCLD) %>%
- rename(crop_canopy = response) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-
-hav20_corn_can_lsmeans= emmeans(hav20_corn_can ,~ soil, contr="pairwise", adjust="none", type="response")
-hav20_corn_canCLD<- CLD(hav20_corn_can_lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
-
-hav20_corn_canCLD <- as_tibble(hav20_corn_canCLD) %>%
- rename(crop_canopy = response) %>%
-  mutate(soil= factor(soil, levels= order)) %>%
-  arrange(soil)
-```
-
-```{r, echo= FALSE, include= FALSE}
-cncanopy= data.frame()
-
-arl19_corn_canCLD$location= c("Arlington")
-lan19_corn_canCLD$location= c("Lancaster")
-lan20_corn_canCLD$location= c("Lancaster")
-hav19_corn_canCLD$location= c("Havelock")
-hav20_corn_canCLD$location= c("Havelock")
-
-arl19_corn_canCLD$year= c("2019")
-lan19_corn_canCLD$year= c("2019")
-lan20_corn_canCLD$year= c("2020")
-hav19_corn_canCLD$year= c("2019")
-hav20_corn_canCLD$year= c("2020")
-
-cncanopy<- rbind(arl19_corn_canCLD, cncanopy)
-cncanopy<- rbind(lan19_corn_canCLD, cncanopy)
-cncanopy<- rbind(lan20_corn_canCLD, cncanopy)
-cncanopy<- rbind(hav19_corn_canCLD, cncanopy)
-cncanopy<- rbind(hav20_corn_canCLD, cncanopy)
-```
-
-
-```{r, echo= FALSE, include= FALSE}
-cn_canopy1 <- ggplot(cncanopy, aes(x= soil, y= crop_canopy*100, color= soil)) +
-  geom_point(size= 3) +
-  geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 12) +
-  geom_jitter(data = Corn1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
-  #coord_flip() +
-  facet_grid(year~location) +
-  theme_bw() +
-  scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Corn Canopy")
-```
 
 # Cover Crop Biomass analysis
 ```{r}
@@ -966,6 +1032,7 @@ CornCC %>%
   geom_boxplot() +
   facet_grid(crop ~ year)
 ```
+based on separations between locations and across years, I think it is appropriate to look for significant differences between site-years and separate means accordingly in CC biomass models.
 
 ```{r}
 cn_cc_bio= lmer(biomass_kg~ site_crop_yr * herb + (1|site_crop_yr:rep), data=CornCC)
@@ -974,6 +1041,7 @@ qqnorm(resid(cn_cc_bio))
 plot(cn_cc_bio)
 #Assumption for equal variance not met
 
+#Proceeded with a square-root transformation
 cn_cc_bio1= lmer(sqrt(biomass_kg)~ site_crop_yr * herb + (1|site_crop_yr:rep), data=CornCC)
 
 qqnorm(resid(cn_cc_bio1))
@@ -983,6 +1051,7 @@ plot(cn_cc_bio1)
 anova(cn_cc_bio1)
 #Site-year significant
 ```
+There is no evidence that herbicide treatment influenced cover crop biomass.
 
 ```{r, echo= FALSE, include= FALSE}
 cn_cc_lsmeans= emmeans(cn_cc_bio1 ,~ site_crop_yr, contr="pairwise", adjust="none", type="response")
@@ -1007,13 +1076,13 @@ Corn_CCbio= ggplot(cn_ccCLD, aes(x= site_crop_yr, y= biomass_kg, color= site_cro
   labs(title = "Corn")
 ```
 
-```{r}
+```{r, include= FALSE}
 Corn_CCbio
 ```
 
 
 # Cover Crop Canopy
-### Corn
+
 ```{r, echo= FALSE, include= FALSE}
 CornCC1 <- CornCC %>%
   filter(!is.na(canopy))
@@ -1035,6 +1104,8 @@ cn_cc_can= glmmTMB(canopy~ site_crop_yr*herb + (1|site_crop_yr:rep), data=CornCC
 Anova(cn_cc_can)
 #Site-year significant
 ```
+
+There is no evidence that herbicide treatment influenced cover crop biomass.
 
 ```{r, echo= FALSE, include= FALSE}
 cn_cc_can_lsmeans= emmeans(cn_cc_can ,~ site_crop_yr, contr="pairwise", adjust="none", type="response")
@@ -1058,7 +1129,7 @@ Corn_CCcan= ggplot(cn_cc_canCLD, aes(x= site_crop_yr, y= canopy*100, color= site
   labs(title = "Corn")
 ```
 
-```{r}
+```{r, include= FALSE}
 Corn_CCcan
 ```
 
