@@ -258,14 +258,14 @@ sb_canopy_soilCLD <- as_tibble(sb_canopy_soilCLD) %>%
 sb_canopy <- ggplot(sb_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 12) +
+  geom_text(aes(label = .group), nudge_y = 12, size= 6) +
   geom_jitter(data = Soybean1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
   #coord_flip() +
   facet_wrap(~site_crop_yr) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none") +
-  labs(title = "Soybean Canopy")
+  labs(title = "Soybean Canopy", x= "Soil Management Practice", y = "% Canopy Coverage")
 
 ```
 
@@ -273,14 +273,14 @@ sb_canopy <- ggplot(sb_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= s
 sb_canopyherb <- ggplot(sb_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, color= herb)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 4) +
+  geom_text(aes(label = .group), nudge_y = 4, size= 6) +
   geom_jitter(data = Soybean1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
   #coord_flip() +
   #facet_grid(year~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none") +
-  labs(title = "Soybean Canopy")
+  labs(title = "Soybean Canopy", x= "Herbicide Treatment", y= "% Canopy Coverage")
 #Models below in comparison
 ```
 
@@ -535,10 +535,8 @@ separated
 ```{r, echo= FALSE, include= FALSE}
 composite1<- {sb_canopy + sb_canopyherb}+
   plot_annotation(title = 'Soybean Canopy Coverage',
-  subtitle = "Composite Analysis",
   theme = theme(plot.title = element_text(size = 30),
-                plot.subtitle= element_text(size = 20))) & 
-  theme(plot.title = element_text("serif"))
+                plot.subtitle= element_text(size = 20)))
 ```
 
 ```{r, echo= FALSE, fig.height= 6, fig.width= 12}

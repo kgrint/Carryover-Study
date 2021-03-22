@@ -94,7 +94,8 @@ CornComp= CornComp %>%
   filter(Site_Yr != "ARL_20") %>%
   filter(!is.na(Total)) %>%
   filter(!is.na(Hundred)) %>%
-  filter(!is.na(Seeds))
+  filter(!is.na(Seeds)) %>%
+  janitor::clean_names()
 
 ```
 # Analysis Procedure
@@ -225,14 +226,14 @@ cn_canopy_soilCLD <- as_tibble(cn_canopy_soilCLD) %>%
 cn_canopyherb <- ggplot(cn_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, color= herb)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 12) +
+  geom_text(aes(label = .group), nudge_y = 12, size= 6) +
   geom_jitter(data = Corn1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
   #coord_flip() +
   #facet_wrap(~site_crop_yr) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none") +
-  labs(title = "Corn Canopy")
+  labs(x= "Herbicide Treatment", y= "% Canopy Coverage")
 ```
 
 
@@ -240,14 +241,14 @@ cn_canopyherb <- ggplot(cn_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, colo
 cn_canopy <- ggplot(cn_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 12) +
+  geom_text(aes(label = .group), nudge_y = 12, size= 6) +
   geom_jitter(data = Corn1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
   #coord_flip() +
   facet_wrap(~site_crop_yr) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none") +
-  labs(title = "Corn Canopy")
+  labs(x= "Soil Management Practice", y= "% Canopy Coverage")
 ```
 
 ## Separated analysis for each site-year
@@ -383,10 +384,8 @@ cn_canopy1
 ```{r, include= FALSE}
 composite1<- {cn_canopy + cn_canopyherb}+
   plot_annotation(title = 'Corn Canopy Coverage',
-  subtitle = "Condensed Analysis",
   theme = theme(plot.title = element_text(size = 30),
-                plot.subtitle= element_text(size = 20))) & 
-  theme(plot.title = element_text("serif"))
+                plot.subtitle= element_text(size = 20))) 
 ```
 
 ```{r, echo= FALSE, fig.height= 6, fig.width= 12}
@@ -510,7 +509,7 @@ cnyield<- rbind(hav_cn_cld, cnyield)
 y1<- ggplot(cnyield, aes(x= soil, y= yield, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 2200) +
+  geom_text(aes(label = .group), nudge_y = 2400, size= 6) +
   geom_jitter(data = Corn1 ,mapping = aes(y = yield), alpha = 0.2) +
   #coord_flip() +
   facet_grid(~location) +
@@ -535,11 +534,11 @@ Now to see if the yield components explain more.
   #geom_density()
 
 CornComp %>% 
-  ggplot(aes(x =Hundred)) +
+  ggplot(aes(x =hundred)) +
   geom_density()
 
 CornComp %>% 
-  ggplot(aes(x =Seeds)) +
+  ggplot(aes(x =seeds)) +
   geom_density()
 ```
 
@@ -552,13 +551,13 @@ CornComp %>%
 
 #Plot of seed density
 CornComp %>%
-  ggplot(aes(x = Soil, y = Hundred, color = Soil)) +
+  ggplot(aes(x = Soil, y = hundred, color = Soil)) +
   geom_boxplot() +
   facet_grid(~ Site_Yr)
 
 #Plot of seed counts
 CornComp %>%
-  ggplot(aes(x = Soil, y = Seeds, color = Soil)) +
+  ggplot(aes(x = Soil, y = seeds, color = Soil)) +
   geom_boxplot() +
   facet_grid(~ Site_Yr)
 ```
@@ -568,7 +567,7 @@ Based on these figures I think it would be appropriate to conduct analyses for e
 ### All yield component Figures will be included at the end of this section.
 
 ```{r, include= FALSE}
-arl_CNTotal= lmer(Total~ Soil*Herb + (1|Rep) , data= (filter(CornComp, Location == "Arlington" )))
+arl_CNTotal= lmer(total~ soil*herb + (1|rep) , data= (filter(CornComp, location == "Arlington" )))
 qqnorm(resid(arl_CNTotal))
 plot(arl_CNTotal)
 #Assumptions met
@@ -578,7 +577,7 @@ anova(arl_CNTotal)
 ```
 
 ```{r, include= FALSE}
-lan_CNTotal= lmer(Total~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Lancaster" )))
+lan_CNTotal= lmer(total~ soil*herb + (1|rep) , data= (filter(CornComp, location == "Lancaster" )))
 qqnorm(resid(lan_CNTotal))
 plot(lan_CNTotal)
 #Assumptions met
@@ -588,7 +587,7 @@ anova(lan_CNTotal)
 ```
 
 ```{r, include= FALSE}
-hav_CNTotal= lmer(Total~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Havelock" )))
+hav_CNTotal= lmer(total~ soil*herb + (1|rep) , data= (filter(CornComp, location == "Havelock" )))
 qqnorm(resid(hav_CNTotal))
 plot(hav_CNTotal)
 #Assumptions met
@@ -598,35 +597,35 @@ anova(hav_CNTotal)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-arl_cn_Totallsmeans<- lsmeans(arl_CNTotal, ~ Soil, contr="pairwise", adjust="none")
+arl_cn_Totallsmeans<- lsmeans(arl_CNTotal, ~ soil, contr="pairwise", adjust="none")
 
 arl_cn_Totalcld <- cld(arl_cn_Totallsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 arl_cn_Totalcld <- as_tibble(arl_cn_Totalcld) %>% 
-  rename(Total = lsmean) %>%
-  mutate(soil= factor(Soil, levels= order)) %>%
+  rename(total = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-lan_cn_Totallsmeans<- lsmeans(lan_CNTotal, ~ Soil, contr="pairwise", adjust="none")
+lan_cn_Totallsmeans<- lsmeans(lan_CNTotal, ~ soil, contr="pairwise", adjust="none")
 
 lan_cn_Totalcld <- cld(lan_cn_Totallsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 lan_cn_Totalcld <- as_tibble(lan_cn_Totalcld) %>% 
-  rename(Total = lsmean) %>%
-  mutate(soil= factor(Soil, levels= order)) %>%
+  rename(total = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-hav_cn_Totallsmeans<- lsmeans(hav_CNTotal, ~ Soil, contr="pairwise", adjust="none")
+hav_cn_Totallsmeans<- lsmeans(hav_CNTotal, ~ soil, contr="pairwise", adjust="none")
 
 hav_cn_Totalcld <- cld(hav_cn_Totallsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 hav_cn_Totalcld <- as_tibble(hav_cn_Totalcld) %>% 
-  rename(Total = lsmean) %>%
-  mutate(soil= factor(Soil, levels= order)) %>%
+  rename(total = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
 
@@ -634,9 +633,9 @@ hav_cn_Totalcld <- as_tibble(hav_cn_Totalcld) %>%
 ```{r, echo= FALSE, include= FALSE}
 cn_Total= data.frame()
 
-arl_cn_Totalcld$Location= c("Arlington")
-lan_cn_Totalcld$Location= c("Lancaster")
-hav_cn_Totalcld$Location= c("Havelock")
+arl_cn_Totalcld$location= c("Arlington")
+lan_cn_Totalcld$location= c("Lancaster")
+hav_cn_Totalcld$location= c("Havelock")
 
 cn_Total<- rbind(arl_cn_Totalcld, cn_Total)
 cn_Total<- rbind(lan_cn_Totalcld, cn_Total)
@@ -664,12 +663,12 @@ CNTotal_site<- ggplot(cn_Total, aes(x= Soil, y= Total, color= Soil)) +
 
 ```{r, include = FALSE, echo = FALSE}
 #Condensed analysis for total sample mass.
-CNTotal= lmer(Total~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=CornComp)
+CNTotal= lmer(total~site_Yr*soil*herb+ (1|site_yr:rep) , data=CornComp)
 qqnorm(resid(CNTotal))
 plot(CNTotal)
 #normality is questionable, data looks a little skewed. Try transforming.
 
-CNTotal1= lmer((Total^2)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=CornComp)
+CNTotal1= lmer((total^2)~site_yr*soil*herb+ (1|site_yr:rep) , data=CornComp)
 qqnorm(resid(CNTotal1))
 plot(CNTotal1)
 #slightly improved on normality maybe. I think I will leave it untransformed since transformation isn't fitting of data type.
@@ -682,17 +681,17 @@ anova(CNTotal)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-CNTotMeans= lsmeans(CNTotal, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
+CNTotMeans= lsmeans(CNTotal, ~ soil|site_yr, contr="pairwise", adjust="none", type= "response")
 CLD1= CLD(CNTotMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
 CLD1
 ```
 
 
 ```{r, echo= FALSE, include= FALSE}
-CNTotal= ggplot(CLD1, aes(x=Soil , y=lsmean, label= .group))+
+CNTotal= ggplot(CLD1, aes(x=soil , y=lsmean, label= .group))+
    geom_point(aes(),stat= "identity")+
    geom_text(nudge_y= 150, size = 8)+
-  facet_grid(~Site_Yr)+
+  facet_grid(~site_yr)+
    geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
   labs(title= "Corn Total Sample Mass", x= "Soil Management", y= "Total Sample Mass")
 
@@ -707,7 +706,7 @@ CNTotal
 ### Arlington
 Only chose to show the first model
 ```{r, fig.show='hide'}
-arl_CNHun= lmer(Hundred~ Soil*Herb + (1|Rep) , data= (filter(CornComp, Location == "Arlington" )))
+arl_CNHun= lmer(hundred~ soil*herb + (1|rep) , data= (filter(CornComp, location == "Arlington" )))
 qqnorm(resid(arl_CNHun))
 plot(arl_CNHun)
 #Assumptions met
@@ -720,7 +719,7 @@ anova(arl_CNHun)
 
 ### Lancaster
 ```{r, include= FALSE}
-lan_CNHun= lmer(Hundred~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Lancaster" )))
+lan_CNHun= lmer(hundred~ soil*herb + (1|rep/year) , data= (filter(CornComp, location == "Lancaster" )))
 qqnorm(resid(lan_CNHun))
 plot(lan_CNHun)
 #Assumptions met
@@ -733,7 +732,7 @@ anova(lan_CNHun)
 
 ### Havelock
 ```{r, include= FALSE}
-hav_CNHun= lmer(Hundred~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Havelock" )))
+hav_CNHun= lmer(hundred~ soil*herb + (1|rep/year) , data= (filter(CornComp, location == "Havelock" )))
 qqnorm(resid(hav_CNHun))
 plot(hav_CNHun)
 #Assumptions met
@@ -745,35 +744,35 @@ anova(hav_CNHun)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-arl_CNHunlsmeans<- lsmeans(arl_CNHun, ~ Soil, contr="pairwise", adjust="none")
+arl_CNHunlsmeans<- lsmeans(arl_CNHun, ~ soil, contr="pairwise", adjust="none")
 
 arl_CNHuncld <- cld(arl_CNHunlsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 arl_CNHuncld <- as_tibble(arl_CNHuncld) %>% 
-  rename(Hundred = lsmean) %>%
-  mutate(soil= factor(Soil, levels= order)) %>%
+  rename(hundred = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-lan_CNHunlsmeans<- lsmeans(lan_CNHun, ~ Soil, contr="pairwise", adjust="none")
+lan_CNHunlsmeans<- lsmeans(lan_CNHun, ~ soil, contr="pairwise", adjust="none")
 
 lan_CNHuncld <- cld(lan_CNHunlsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 lan_CNHuncld <- as_tibble(lan_CNHuncld) %>% 
-  rename(Hundred = lsmean) %>%
-  mutate(soil= factor(Soil, levels= order)) %>%
+  rename(hundred = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-hav_CNHunlsmeans<- lsmeans(hav_CNHun, ~ Soil, contr="pairwise", adjust="none")
+hav_CNHunlsmeans<- lsmeans(hav_CNHun, ~ soil, contr="pairwise", adjust="none")
 
 hav_CNHuncld <- cld(hav_CNHunlsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 hav_CNHuncld <- as_tibble(hav_CNHuncld) %>% 
-  rename(Hundred = lsmean) %>%
-  mutate(soil= factor(Soil, levels= order)) %>%
+  rename(hundred = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
 
@@ -781,30 +780,34 @@ hav_CNHuncld <- as_tibble(hav_CNHuncld) %>%
 ```{r, echo= FALSE, include= FALSE}
 cn_Hundred= data.frame()
 
-arl_CNHuncld$Location= c("Arlington")
-lan_CNHuncld$Location= c("Lancaster")
-hav_CNHuncld$Location= c("Havelock")
+arl_CNHuncld$location= c("Arlington")
+lan_CNHuncld$location= c("Lancaster")
+hav_CNHuncld$location= c("Havelock")
+
 
 cn_Hundred<- rbind(arl_CNHuncld, cn_Hundred)
-cn_Hundred<- rbind(lan_CNHuncld, cn_Hundred)
 cn_Hundred<- rbind(hav_CNHuncld, cn_Hundred)
+cn_Hundred<- rbind(lan_CNHuncld, cn_Hundred)
+
+cn_Hundred<- cn_Hundred %>%
+  arrange(location)
 
 ```
 
 
 ```{r, echo= FALSE, include= FALSE}
 
-CNHundred_site<- ggplot(cn_Hundred, aes(x= Soil, y= Hundred, color= Soil)) +
+CNHundred_site<- ggplot(cn_Hundred, aes(x= soil, y= hundred, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 6) +
-  geom_jitter(data = CornComp ,mapping = aes(y = Hundred), alpha = 0.2) +
+  geom_text(aes(label = .group), nudge_y = 6, size= 6) +
+  geom_jitter(data = CornComp ,mapping = aes(y = hundred), alpha = 0.2) +
   #coord_flip() +
-  facet_grid(~Location) +
+  facet_grid(~ location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none") +
-  labs(title = "Corn Seed Density")
+  labs(title = "Corn Seed Density", x= "Soil Management Practice", y= "100 Seed Mass")
 ```
 
 
@@ -812,7 +815,7 @@ CNHundred_site<- ggplot(cn_Hundred, aes(x= Soil, y= Hundred, color= Soil)) +
 
 ```{r, include = FALSE, echo = FALSE }
 ## Condensed Analysis----- not included in pdf
-CNHundred= lmer(Hundred~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=CornComp)
+CNHundred= lmer(hundred~site_yr*soil*herb+ (1|site_yr:rep) , data=CornComp)
 qqnorm(resid(CNHundred))
 plot(CNHundred)
 #Assumptions for normality and equal variance satisfactorily met. Proceed with ANOVA.
@@ -826,17 +829,17 @@ anova(CNHundred)
 
 
 ```{r, include = FALSE, echo = FALSE }
-CNHundredMeans= lsmeans(CNHundred, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
+CNHundredMeans= lsmeans(CNHundred, ~ soil|site_yr, contr="pairwise", adjust="none", type= "response")
 CLD2= CLD(CNHundredMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
 CLD2
 ```
 
 
 ```{r, echo= FALSE, include= FALSE}
-CNSeedDensity= ggplot(CLD2, aes(x=Soil , y=lsmean, label= .group))+
+CNSeedDensity= ggplot(CLD2, aes(x=soil , y=lsmean, label= .group))+
    geom_point(aes(),stat= "identity")+
    geom_text(nudge_y= 2, size = 8)+
-  facet_grid(~Site_Yr)+
+  facet_grid(~site_yr)+
    geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
   labs(title= "Corn Seed Density", x= "Soil Management", y= "100 Seed Weight")
 
@@ -853,7 +856,7 @@ CNSeedDensity
 ### Arlington
 Showing first model only
 ```{r, echo= FALSE}
-arl_Seeds= lmer(Seeds~ Soil*Herb + (1|Rep) , data= (filter(CornComp, Location == "Arlington" )))
+arl_Seeds= lmer(seeds~ soil*herb + (1|rep) , data= (filter(CornComp, location == "Arlington" )))
 qqnorm(resid(arl_Seeds))
 plot(arl_Seeds)
 #Assumptions met
@@ -865,7 +868,7 @@ anova(arl_Seeds)
 ```
 ### Lancaster
 ```{r, include=FALSE}
-lan_Seeds= lmer(Seeds~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Lancaster" )))
+lan_Seeds= lmer(seeds~ soil*herb + (1|rep/year) , data= (filter(CornComp, location == "Lancaster" )))
 qqnorm(resid(lan_Seeds))
 plot(lan_Seeds)
 #Normality slightly questionable, Equal variance good
@@ -878,7 +881,7 @@ anova(lan_Seeds)
 
 ### Havelock
 ```{r, include= FALSE}
-hav_Seeds= lmer(Seeds~ Soil*Herb + (1|Rep/Year) , data= (filter(CornComp, Location == "Havelock" )))
+hav_Seeds= lmer(seeds~ soil*herb + (1|rep/year) , data= (filter(CornComp, location == "Havelock" )))
 qqnorm(resid(hav_Seeds))
 plot(hav_Seeds)
 #Assumptions met
@@ -890,35 +893,35 @@ anova(hav_Seeds)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-arl_Seedslsmeans<- lsmeans(arl_Seeds, ~ Soil, contr="pairwise", adjust="none")
+arl_Seedslsmeans<- lsmeans(arl_Seeds, ~ soil, contr="pairwise", adjust="none")
 
 arl_Seedscld <- cld(arl_Seedslsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 arl_Seedscld <- as_tibble(arl_Seedscld) %>% 
-  rename(Seeds = lsmean) %>%
-  mutate(soil= factor(Soil, levels= order)) %>%
+  rename(seeds = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-lan_Seedslsmeans<- lsmeans(lan_Seeds, ~ Soil, contr="pairwise", adjust="none")
+lan_Seedslsmeans<- lsmeans(lan_Seeds, ~ soil, contr="pairwise", adjust="none")
 
 lan_Seedscld <- cld(lan_Seedslsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 lan_Seedscld <- as_tibble(lan_Seedscld) %>% 
-  rename(Seeds = lsmean) %>%
-  mutate(soil= factor(Soil, levels= order)) %>%
+  rename(seeds = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
 
 ```{r, echo= FALSE, include= FALSE}
-hav_Seedslsmeans<- lsmeans(hav_Seeds, ~ Soil, contr="pairwise", adjust="none")
+hav_Seedslsmeans<- lsmeans(hav_Seeds, ~ soil, contr="pairwise", adjust="none")
 
 hav_Seedscld <- cld(hav_Seedslsmeans$lsmeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reverse=TRUE)
 
 hav_Seedscld <- as_tibble(hav_Seedscld) %>% 
-  rename(Seeds = lsmean) %>%
-  mutate(soil= factor(Soil, levels= order)) %>%
+  rename(seeds = lsmean) %>%
+  mutate(soil= factor(soil, levels= order)) %>%
   arrange(soil)
 ```
 
@@ -926,9 +929,9 @@ hav_Seedscld <- as_tibble(hav_Seedscld) %>%
 ```{r, echo= FALSE, include= FALSE}
 cn_Seeds= data.frame()
 
-arl_Seedscld$Location= c("Arlington")
-lan_Seedscld$Location= c("Lancaster")
-hav_Seedscld$Location= c("Havelock")
+arl_Seedscld$location= c("Arlington")
+lan_Seedscld$location= c("Lancaster")
+hav_Seedscld$location= c("Havelock")
 
 cn_Seeds<- rbind(arl_Seedscld, cn_Seeds)
 cn_Seeds<- rbind(lan_Seedscld, cn_Seeds)
@@ -939,28 +942,28 @@ cn_Seeds<- rbind(hav_Seedscld, cn_Seeds)
 
 
 ```{r, echo= FALSE, include= FALSE}
-CNSeeds_site<- ggplot(cn_Seeds, aes(x= Soil, y= Seeds, color= Soil)) +
+CNSeeds_site<- ggplot(cn_Seeds, aes(x= soil, y= seeds, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 900) +
-  geom_jitter(data = CornComp ,mapping = aes(y = Seeds), alpha = 0.2) +
+  geom_text(aes(label = .group), nudge_y = 900, size= 6) +
+  geom_jitter(data = CornComp ,mapping = aes(y = seeds), alpha = 0.2) +
   #coord_flip() +
-  facet_grid(~Location) +
+  facet_grid(~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none") +
-  labs(title = "Corn Seed Count")
+  labs(title = "Corn Seed Count", x= "Soil Management Practice", y= "Seeds sample^-1")
 ```
 
 
 ```{r, include = FALSE, echo = FALSE }
 #Condensed Analysis------- Not included in pdf
-CNSeeds= lmer(Seeds~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=CornComp)
+CNSeeds= lmer(seeds~site_yr*soil*herb+ (1|site_yr:rep) , data=CornComp)
 qqnorm(resid(CNSeeds))
 plot(CNSeeds)
 #Normality assumption isn't amazing Proceed to transform
 
-CNSeeds1= lmer((Seeds^2)~Site_Yr*Soil*Herb+ (1|Site_Yr:Rep) , data=CornComp)
+CNSeeds1= lmer((seeds^2)~site_yr*soil*herb+ (1|site_yr:rep) , data=CornComp)
 qqnorm(resid(CNSeeds1))
 plot(CNSeeds1)
 #Assumption for normal distribution improved. This transformation doesn't really make sense for this data, so proceeded with first model.
@@ -973,17 +976,17 @@ anova(CNSeeds)
 ```
 
 ```{r, include = FALSE, echo = FALSE}
-CNSeedsMeans= lsmeans(CNSeeds, ~ Soil|Site_Yr, contr="pairwise", adjust="none", type= "response")
+CNSeedsMeans= lsmeans(CNSeeds, ~ soil|site_yr, contr="pairwise", adjust="none", type= "response")
 CLD3= CLD(CNSeedsMeans, alpha=0.05, Letters=letters, adjust="none", sort=TRUE, reversed=TRUE)
 CLD3
 ```
 
 
 ```{r, echo= FALSE, include= FALSE}
-CNSeeds= ggplot(CLD3, aes(x=Soil , y=lsmean, label= .group))+
+CNSeeds= ggplot(CLD3, aes(x=soil , y=lsmean, label= .group))+
    geom_point(aes(),stat= "identity")+
    geom_text(nudge_y= 400, size = 8)+
-  facet_grid(~Site_Yr)+
+  facet_grid(~site_yr)+
    geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
   labs(title= "Corn Seed Count", x= "Soil Management", y= "# of Seeds")
 ```
@@ -1003,15 +1006,14 @@ CNSeeds
 # Corn Yield Components to Yield comparison
 ```{r, include= FALSE}
 
-Yield_figure= {(CNSeeds_site|CNHundred_site)/y1}+
-  plot_annotation(title = 'Corn Yield Components - Yield',
+Yield_figure= {(CNSeeds_site)/(CNHundred_site)/(y1)}+
+  plot_annotation(title = 'Corn Yield',
   subtitle = "",
   theme = theme(plot.title = element_text(size = 30),
-                plot.subtitle= element_text(size = 20))) & 
-  theme(plot.title = element_text("serif"))
+                plot.subtitle= element_text(size = 20))) 
 ```
 
-```{r, echo= FALSE, fig.height= 6, fig.width= 12}
+```{r, echo= FALSE, fig.height= 12, fig.width= 8}
 Yield_figure
 ```
 
