@@ -222,6 +222,15 @@ cn_canopy_soilCLD <- as_tibble(cn_canopy_soilCLD) %>%
   arrange(soil)
 ```
 
+
+```{r}
+cn_canopy_soilCLD = cn_canopy_soilCLD %>%
+  separate(site_crop_yr, c("location", "year"), " ") %>%
+  mutate(year = as.factor(year))
+
+```
+
+
 ```{r, include= FALSE}
 cn_canopyherb <- ggplot(cn_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, color= herb)) +
   geom_point(size= 3) +
@@ -232,7 +241,12 @@ cn_canopyherb <- ggplot(cn_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, colo
   #facet_wrap(~site_crop_yr) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 25),
+        axis.title.x = element_text(size = 25),
+        axis.title.y = element_text(size = 25),
+        axis.text.y = element_text(size = 15),
+        axis.text.x = element_text(size = 15)) +
   labs(x= "Herbicide Treatment", y= "% Canopy Coverage")
 ```
 
@@ -244,12 +258,20 @@ cn_canopy <- ggplot(cn_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= s
   geom_text(aes(label = .group), nudge_y = 12, size= 6) +
   geom_jitter(data = Corn1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
   #coord_flip() +
-  facet_wrap(~site_crop_yr) +
+  facet_grid(year~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 25),
+        axis.title.x = element_text(size = 25),
+        axis.title.y = element_text(size = 25),
+        axis.text.y = element_text(size = 15),
+        axis.text.x = element_text(angle= 45, hjust = 1, size = 15),
+        strip.text = element_text(size= 15)) +
   labs(x= "Soil Management Practice", y= "% Canopy Coverage")
 ```
+
+
 
 ## Separated analysis for each site-year
 Just showing the first one and then hiding later ones.
@@ -382,8 +404,9 @@ cn_canopy1
 ### Condensed
 
 ```{r, include= FALSE}
-composite1<- {cn_canopy + cn_canopyherb}+
+composite1<- {cn_canopyherb + cn_canopy }+
   plot_annotation(title = 'Corn Canopy Coverage',
+                  subtitle = 'V3-V4 Crop Stage',
   theme = theme(plot.title = element_text(size = 30),
                 plot.subtitle= element_text(size = 20))) 
 ```
@@ -506,20 +529,27 @@ cnyield<- rbind(hav_cn_cld, cnyield)
 ```
 
 ```{r, include = FALSE}
+ylab.text1= expression("Yield kg ha"^"-1")
+
 y1<- ggplot(cnyield, aes(x= soil, y= yield, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 2400, size= 6) +
+  geom_text(aes(label = .group), nudge_y = 2500, size= 6) +
   geom_jitter(data = Corn1 ,mapping = aes(y = yield), alpha = 0.2) +
   #coord_flip() +
   facet_grid(~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Corn Yield")
+  theme(legend.position = "none",
+        plot.title = element_text(size = 25),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 25),
+        axis.text.x = element_text(size = 15),
+        strip.text = element_text(size= 15)) +
+  labs(title = "Corn Yield", y= ylab.text1 )
 ```
 
-```{r, echo= FALSE}
+```{r, echo= FALSE, fig.width= 10}
 y1
 ```
 No impact on crop yield from herbicides. All three location had reduced yield for the CC treatment. Havelock and Lancaster showed reduced yield for the no-till treatment as well.
@@ -551,15 +581,15 @@ CornComp %>%
 
 #Plot of seed density
 CornComp %>%
-  ggplot(aes(x = Soil, y = hundred, color = Soil)) +
+  ggplot(aes(x = soil, y = hundred, color = soil)) +
   geom_boxplot() +
-  facet_grid(~ Site_Yr)
+  facet_grid(~ site_yr)
 
 #Plot of seed counts
 CornComp %>%
-  ggplot(aes(x = Soil, y = seeds, color = Soil)) +
+  ggplot(aes(x = soil, y = seeds, color = soil)) +
   geom_boxplot() +
-  facet_grid(~ Site_Yr)
+  facet_grid(~ site_yr)
 ```
 
 Based on these figures I think it would be appropriate to conduct analyses for each location separately similar to how yield was done.
@@ -645,13 +675,13 @@ cn_Total<- rbind(hav_cn_Totalcld, cn_Total)
 
 
 ```{r, echo= FALSE, include= FALSE}
-CNTotal_site<- ggplot(cn_Total, aes(x= Soil, y= Total, color= Soil)) +
+CNTotal_site<- ggplot(cn_Total, aes(x= soil, y= total, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
   geom_text(aes(label = .group), nudge_y = 210) +
-  geom_jitter(data = CornComp ,mapping = aes(y = Total), alpha = 0.2) +
+  geom_jitter(data = CornComp ,mapping = aes(y = total), alpha = 0.2) +
   #coord_flip() +
-  facet_grid(~Location) +
+  facet_grid(~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none") +
@@ -663,7 +693,7 @@ CNTotal_site<- ggplot(cn_Total, aes(x= Soil, y= Total, color= Soil)) +
 
 ```{r, include = FALSE, echo = FALSE}
 #Condensed analysis for total sample mass.
-CNTotal= lmer(total~site_Yr*soil*herb+ (1|site_yr:rep) , data=CornComp)
+CNTotal= lmer(total~site_yr*soil*herb+ (1|site_yr:rep) , data=CornComp)
 qqnorm(resid(CNTotal))
 plot(CNTotal)
 #normality is questionable, data looks a little skewed. Try transforming.
@@ -806,8 +836,13 @@ CNHundred_site<- ggplot(cn_Hundred, aes(x= soil, y= hundred, color= soil)) +
   facet_grid(~ location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Corn Seed Density", x= "Soil Management Practice", y= "100 Seed Mass")
+  theme(legend.position = "none",
+        plot.title = element_text(size = 25),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 25),
+        axis.text.x = element_text(size = 15),
+        strip.text = element_text(size= 15)) +
+  labs(title = "Corn Seed Density",  y= "100 Seed Mass")
 ```
 
 
@@ -841,7 +876,7 @@ CNSeedDensity= ggplot(CLD2, aes(x=soil , y=lsmean, label= .group))+
    geom_text(nudge_y= 2, size = 8)+
   facet_grid(~site_yr)+
    geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3)+
-  labs(title= "Corn Seed Density", x= "Soil Management", y= "100 Seed Weight")
+  labs(title= "Corn Seed Density",  y= "100 Seed Weight")
 
 ```
 
@@ -942,6 +977,8 @@ cn_Seeds<- rbind(hav_Seedscld, cn_Seeds)
 
 
 ```{r, echo= FALSE, include= FALSE}
+ylab.text2= expression("Seeds Sample"^"-1")
+
 CNSeeds_site<- ggplot(cn_Seeds, aes(x= soil, y= seeds, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL, ymax= upper.CL), width= .3) +
@@ -951,8 +988,13 @@ CNSeeds_site<- ggplot(cn_Seeds, aes(x= soil, y= seeds, color= soil)) +
   facet_grid(~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Corn Seed Count", x= "Soil Management Practice", y= "Seeds sample^-1")
+  theme(legend.position = "none",
+        plot.title = element_text(size = 25),
+        axis.title.x = element_text(size = 25),
+        axis.title.y = element_text(size = 25),
+        axis.text.x = element_text(size = 15),
+        strip.text = element_text(size= 15)) +
+  labs(title = "Corn Seed Count", x= "Soil Management Practice", y= ylab.text2)
 ```
 
 
@@ -1006,26 +1048,16 @@ CNSeeds
 # Corn Yield Components to Yield comparison
 ```{r, include= FALSE}
 
-Yield_figure= {(CNSeeds_site)/(CNHundred_site)/(y1)}+
-  plot_annotation(title = 'Corn Yield',
-  subtitle = "",
-  theme = theme(plot.title = element_text(size = 30),
-                plot.subtitle= element_text(size = 20))) 
+Yield_figure= {(y1)/(CNHundred_site)/(CNSeeds_site)}+
+  plot_annotation(tag_levels = ('A')) &
+  theme(plot.title = element_text(size = 40),
+                plot.tag= element_text(size= 40))
 ```
 
-```{r, echo= FALSE, fig.height= 12, fig.width= 8}
+```{r, echo= FALSE, fig.height= 12, fig.width= 12}
 Yield_figure
 ```
-
-### Arlington
-When final grain yield was lowest for the cover crop soil management treatment, there was reduced seed density (also reduced density for the no-till treatment).
-
-### Havelock
-For the reduced final grain yield for the no-till and cover crop treatments, there was significantly lower seed density for the no-till treatment and (not significantly reduced) mean grain density for the cover crop treatment
-
-### Lancaster
-For the reduced final grain yield for the no-till and cover crop treatments, there was significantly lower seed density for the no-till and cover crop treatments as well as  significantly lower seed counts.
-
+ 
 
 # Cover Crop Biomass analysis
 ```{r}

@@ -254,6 +254,14 @@ sb_canopy_soilCLD <- as_tibble(sb_canopy_soilCLD) %>%
   arrange(soil)
 ```
 
+```{r}
+sb_canopy_soilCLD = sb_canopy_soilCLD %>%
+  separate(site_crop_yr, c("location", "year"), " ") %>%
+  mutate(year = as.factor(year))
+
+```
+
+
 ```{r, echo= FALSE, include= FALSE}
 sb_canopy <- ggplot(sb_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= soil)) +
   geom_point(size= 3) +
@@ -261,11 +269,17 @@ sb_canopy <- ggplot(sb_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= s
   geom_text(aes(label = .group), nudge_y = 12, size= 6) +
   geom_jitter(data = Soybean1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
   #coord_flip() +
-  facet_wrap(~site_crop_yr) +
+  facet_grid(year~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Soybean Canopy", x= "Soil Management Practice", y = "% Canopy Coverage")
+  theme(legend.position = "none",
+        plot.title = element_text(size = 25),
+        axis.title.x = element_text(size = 25),
+        axis.title.y = element_text(size = 25),
+        axis.text.y = element_text(size = 15),
+        axis.text.x = element_text(angle= 45, hjust = 1, size = 15),
+        strip.text = element_text(size= 15)) +
+  labs(x= "Soil Management Practice", y = "% Canopy Coverage")
 
 ```
 
@@ -279,8 +293,13 @@ sb_canopyherb <- ggplot(sb_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, colo
   #facet_grid(year~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
-  labs(title = "Soybean Canopy", x= "Herbicide Treatment", y= "% Canopy Coverage")
+  theme(legend.position = "none",
+        plot.title = element_text(size = 25),
+        axis.title.x = element_text(size = 25),
+        axis.title.y = element_text(size = 25),
+        axis.text.y = element_text(size = 15),
+        axis.text.x = element_text(size = 15)) +
+  labs(x= "Herbicide Treatment", y= "% Canopy Coverage")
 #Models below in comparison
 ```
 
@@ -482,13 +501,17 @@ sbcanopy2<- rbind(hav20_soy_canherbCLD, sbcanopy2)
 sb_canopy1 <- ggplot(sbcanopy, aes(x= soil, y= crop_canopy*100, color= soil)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 10) +
+  geom_text(aes(label = .group), nudge_y = 10, size= 6) +
   geom_jitter(data = Soybean1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
   #coord_flip() +
   facet_grid(year~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 25),
+        axis.title.x = element_text(size = 25),
+        axis.title.y = element_text(size = 25),
+        axis.text.x = element_text(size = 15)) +
   labs(title = "Soybean Canopy")
 
 
@@ -500,13 +523,17 @@ sb_canopy1 <- ggplot(sbcanopy, aes(x= soil, y= crop_canopy*100, color= soil)) +
 sb_canopyherb1 <- ggplot(sbcanopy2, aes(x= herb, y= crop_canopy*100, color= herb)) +
   geom_point(size= 3) +
   geom_errorbar(aes(ymin= lower.CL*100, ymax= upper.CL*100), width= .3) +
-  geom_text(aes(label = .group), nudge_y = 10) +
+  geom_text(aes(label = .group), nudge_y = 10, size = 6) +
   geom_jitter(data = Soybean1 ,mapping = aes(y = crop_canopy*100), alpha = 0.2) +
   #coord_flip() +
   facet_grid(year~location) +
   theme_bw() +
   scale_color_brewer(palette = "Dark2") +
-  theme(legend.position = "none") +
+  theme(legend.position = "none",
+        plot.title = element_text(size = 25),
+        axis.title.x = element_text(size = 25),
+        axis.title.y = element_text(size = 25),
+        axis.text.x = element_text(size = 15)) +
   labs(title = "Soybean Canopy")
 
 ### end of analysis with separate models for each site-year
@@ -525,6 +552,7 @@ separated<- {sb_canopy + sb_canopyherb1}+
                 plot.subtitle= element_text(size = 20))) & 
   theme(plot.title = element_text("serif"))
 ```
+
 ```{r, fig.height= 6, fig.width= 12}
 separated
 ```
@@ -533,10 +561,11 @@ separated
 
 ### Condensed
 ```{r, echo= FALSE, include= FALSE}
-composite1<- {sb_canopy + sb_canopyherb}+
+composite1<- {sb_canopyherb + sb_canopy}+
   plot_annotation(title = 'Soybean Canopy Coverage',
-  theme = theme(plot.title = element_text(size = 30),
-                plot.subtitle= element_text(size = 20)))
+                  subtitle = 'V3-V4 Crop Stage') &
+  theme(plot.title = element_text(size = 30),
+                plot.subtitle= element_text(size = 20))
 ```
 
 ```{r, echo= FALSE, fig.height= 6, fig.width= 12}
@@ -934,6 +963,8 @@ sb_cc_can= glmmTMB(canopy~ site_crop_yr*herb + (1|site_crop_yr:rep), data=SBCC, 
 
 ```{r}
 Anova(sb_cc_bio)
+
+glmmTMB:::Anova.glmmTMB(sb_cc_bio)
 #Site-Year significant
 ```
 There is no evidence that herbicid carryover influenced cover crop canopy
