@@ -43,12 +43,12 @@ SoybeanComp= SoybeanComp %>%
    mutate(Location = fct_recode(Location,
                                 "Arlington" = "ARL",
                                 "Lancaster" = "LAN",
-                                "Havelock" = "HAV"),
+                                "Lincoln" = "HAV"),
           Site_Yr = fct_recode(Site_Yr,
                           "Arlington 2019" = "ARL_19",
                           "Arlington 2020" = "ARL_20",
-                          "Havelock 2019" = "HAV_19",
-                          "Havelock 2020" = "HAV_20",
+                          "Lincoln 2019" = "HAV_19",
+                          "Lincoln 2020" = "HAV_20",
                           "Lancaster 2019" = "LAN_19",
                           "Lancaster 2020" = "LAN_20"),
           Soil = fct_recode(Soil,
@@ -74,10 +74,14 @@ Soybean1 <- Soybean %>%
          Site_crop_yr = fct_recode(Site_crop_yr,
                           "Arlington 2019" = "ARL_SB_19",
                           "Arlington 2020" = "ARL_SB_20",
-                          "Havelock 2019" = "HAV_SB_19",
-                          "Havelock 2020" = "HAV_SB_20",
+                          "Lincoln 2019" = "HAV_SB_19",
+                          "Lincoln 2020" = "HAV_SB_20",
                           "Lancaster 2019" = "LAN_SB_19",
                           "Lancaster 2020" = "LAN_SB_20"),
+         Location = fct_recode(Location,
+                           "Arlington" = "Arlington",
+                           "Lancaster" = "Lancaster",
+                           "Lincoln" = "Havelock"),
          Crop.Canopy = round(Crop.Canopy/100, 2),
          yield = round(yield, 4)) %>%
   filter(!is.na(yield)) %>%
@@ -92,8 +96,8 @@ SBCC <- CC %>%
          Site_Crop_Yr = fct_recode(Site_Crop_Yr,
                           "Arlington 2019" = "ARL_SB_19",
                           "Arlington 2020"  = "ARL_SB_20",
-                          "Havelock 2019" = "HAV_SB_19",
-                          "Havelock 2020" = "HAV_SB_20",
+                          "Lincoln 2019" = "HAV_SB_19",
+                          "Lincoln 2020" = "HAV_SB_20",
                           "Lancaster 2019" = "LAN_SB_19",
                           "Lancaster 2020" = "LAN_SB_20"),
          Canopy = round(Canopy/100, 3)) %>%
@@ -182,8 +186,8 @@ sb_cc_standCLD <- as_tibble(sb_cc_standCLD) %>%
   mutate(site_crop_yr = fct_recode(site_crop_yr,
                           "Arlington 2019" = "ARL_SB_19",
                           "Arlington 2020" = "ARL_SB_20",
-                          "Havelock 2019" = "HAV_SB_19",
-                          "Havelock 2020" = "HAV_SB_20",
+                          "Lincoln 2019" = "HAV_SB_19",
+                          "Lincoln 2020" = "HAV_SB_20",
                           "Lancaster 2019" = "LAN_SB_19",
                           "Lancaster 2020" = "LAN_SB_20")) %>%
   arrange(site_crop_yr)
@@ -631,7 +635,7 @@ anova(lan_sb_yield)
 
 ### Havelock Analysis
 ```{r, include= FALSE, echo= FALSE}
-hav_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Havelock")))
+hav_sb_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Soybean1, location == "Lincoln")))
 
 qqnorm(resid(hav_sb_yield))
 
@@ -683,7 +687,7 @@ sbyield= data.frame()
 
 arl_sb_cld$location= c("Arlington")
 lan_sb_cld$location= c('Lancaster')
-hav_sb_cld$location= c('Havelock')
+hav_sb_cld$location= c('Lincoln')
 
 sbyield<- rbind(arl_sb_cld, sbyield)
 sbyield<- rbind(lan_sb_cld, sbyield)
@@ -708,7 +712,7 @@ y2<- ggplot(sbyield, aes(x= soil, y= yield, color= soil)) +
         axis.title.y = element_text(size = 25),
         axis.text.x = element_text(size = 15),
         strip.text = element_text(size= 15)) +
-  labs(title = "Soybean Yield", x= "Soil Management Practice" , y= ylab.text1)
+  labs(title = "Soybean Yield", x= "Soil Management Practice" , y= bquote('Yield'~(kg~ha^-1)))
 ```
 
 ## Soybean Yield Figure

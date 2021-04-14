@@ -52,10 +52,14 @@ Corn1 <- Corn %>%
          Site_crop_yr = fct_recode(Site_crop_yr,
                           "Arlington 2019" = "ARL_CN_19",
                           "Arlington 2020" = "ARL_CN_20",
-                          "Havelock 2019" = "HAV_CN_19",
-                          "Havelock 2020" = "HAV_CN_20",
+                          "Lincoln 2019" = "HAV_CN_19",
+                          "Lincoln 2020" = "HAV_CN_20",
                           "Lancaster 2019" = "LAN_CN_19",
                           "Lancaster 2020" = "LAN_CN_20"),
+         Location = fct_recode(Location,
+                               "Arlington" = "Arlington",
+                               "Lancaster" = "Lancaster",
+                               "Lincoln" = "Havelock"),
          Crop.Canopy = round(Crop.Canopy/100, 2),
          yield = round(yield, 5),
          Stand.Count = round(Stand.Count, 6)) %>%
@@ -71,10 +75,14 @@ CornCC <- CC %>%
          Site_Crop_Yr = fct_recode(Site_crop_yr,
                           "Arlington 2019" = "ARL_CN_19",
                           "Arlington 2020"  = "ARL_CN_20",
-                          "Havelock 2019" = "HAV_CN_19",
-                          "Havelock 2020" = "HAV_CN_20",
+                          "Lincoln 2019" = "HAV_CN_19",
+                          "Lincoln 2020" = "HAV_CN_20",
                           "Lancaster 2019" = "LAN_CN_19",
                           "Lancaster 2020" = "LAN_CN_20"),
+         Site = fct_recode(Site,
+                               "Arlington" = "Arlington",
+                               "Lancaster" = "Lancaster",
+                               "Lincoln" = "Havelock"),
          Canopy = round(Canopy/100, 3)) %>%
   filter(!is.na(Biomass_kg)) %>%
   filter(!is.na(Site_crop_yr)) %>% 
@@ -86,7 +94,7 @@ CornComp= CornComp %>%
   mutate(Location = fct_recode(Location,
                                "Arlington" = "ARL",
                                "Lancaster" = "LAN",
-                               "Havelock" = "HAV"),
+                               "Lincoln" = "HAV"),
          Soil = fct_recode(Soil,
                            "Cover Crop" = "CC",
                           "No-Till" = "NT",
@@ -469,7 +477,7 @@ anova(lancn_yield)
 
 ### Havelock Analysis
 ```{r, include= FALSE}
-havcn_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Havelock")))
+havcn_yield= lmer(yield~ soil*herb + (1|rep/year), data= (filter(Corn1, location == "Lincoln")))
 #from my understanding the "boundary (singular) fit: see ?isSingular" error means that the estimate of error between random effects, in this case rep/year is almost zero, meaning there isn't a lot of random variability?
 
 qqnorm(resid(havcn_yield))
@@ -521,7 +529,7 @@ hav_cn_cld <- as_tibble(hav_cn_cld) %>%
 ```{r, include= FALSE}
 arl_cn_cld$location= c("Arlington")
 lan_cn_cld$location= c('Lancaster')
-hav_cn_cld$location= c('Havelock')
+hav_cn_cld$location= c('Lincoln')
 
 cnyield<- rbind(arl_cn_cld, cnyield)
 cnyield<- rbind(lan_cn_cld, cnyield)
@@ -546,7 +554,7 @@ y1<- ggplot(cnyield, aes(x= soil, y= yield, color= soil)) +
         axis.title.y = element_text(size = 25),
         axis.text.x = element_text(size = 15),
         strip.text = element_text(size= 15)) +
-  labs(title = "Corn Yield", y= ylab.text1 )
+  labs(title = "Corn Yield", y= bquote('Yield'~(kg~ha^-1)))
 ```
 
 ```{r, echo= FALSE, fig.width= 10}
@@ -762,7 +770,7 @@ anova(lan_CNHun)
 
 ### Havelock
 ```{r, include= FALSE}
-hav_CNHun= lmer(hundred~ soil*herb + (1|rep/year) , data= (filter(CornComp, location == "Havelock" )))
+hav_CNHun= lmer(hundred~ soil*herb + (1|rep/year) , data= (filter(CornComp, location == "Lincoln" )))
 qqnorm(resid(hav_CNHun))
 plot(hav_CNHun)
 #Assumptions met
@@ -812,7 +820,7 @@ cn_Hundred= data.frame()
 
 arl_CNHuncld$location= c("Arlington")
 lan_CNHuncld$location= c("Lancaster")
-hav_CNHuncld$location= c("Havelock")
+hav_CNHuncld$location= c("Lincoln")
 
 
 cn_Hundred<- rbind(arl_CNHuncld, cn_Hundred)
@@ -842,7 +850,7 @@ CNHundred_site<- ggplot(cn_Hundred, aes(x= soil, y= hundred, color= soil)) +
         axis.title.y = element_text(size = 25),
         axis.text.x = element_text(size = 15),
         strip.text = element_text(size= 15)) +
-  labs(title = "Corn Seed Density",  y= "100 Seed Mass")
+  labs(title = "Corn Seed Density",  y= bquote('100 Seed Mass'~(g)))
 ```
 
 
@@ -916,7 +924,7 @@ anova(lan_Seeds)
 
 ### Havelock
 ```{r, include= FALSE}
-hav_Seeds= lmer(seeds~ soil*herb + (1|rep/year) , data= (filter(CornComp, location == "Havelock" )))
+hav_Seeds= lmer(seeds~ soil*herb + (1|rep/year) , data= (filter(CornComp, location == "Lincoln" )))
 qqnorm(resid(hav_Seeds))
 plot(hav_Seeds)
 #Assumptions met
@@ -966,7 +974,7 @@ cn_Seeds= data.frame()
 
 arl_Seedscld$location= c("Arlington")
 lan_Seedscld$location= c("Lancaster")
-hav_Seedscld$location= c("Havelock")
+hav_Seedscld$location= c("Lincoln")
 
 cn_Seeds<- rbind(arl_Seedscld, cn_Seeds)
 cn_Seeds<- rbind(lan_Seedscld, cn_Seeds)
@@ -994,7 +1002,7 @@ CNSeeds_site<- ggplot(cn_Seeds, aes(x= soil, y= seeds, color= soil)) +
         axis.title.y = element_text(size = 25),
         axis.text.x = element_text(size = 15),
         strip.text = element_text(size= 15)) +
-  labs(title = "Corn Seed Count", x= "Soil Management Practice", y= ylab.text2)
+  labs(title = "Corn Seed Count", x= "Soil Management Practice", y= bquote('Seed Count'~(seeds)))
 ```
 
 
@@ -1054,7 +1062,7 @@ Yield_figure= {(y1)/(CNHundred_site)/(CNSeeds_site)}+
                 plot.tag= element_text(size= 40))
 ```
 
-```{r, echo= FALSE, fig.height= 12, fig.width= 12}
+```{r, echo= FALSE, fig.height= 13, fig.width= 12}
 Yield_figure
 ```
  
