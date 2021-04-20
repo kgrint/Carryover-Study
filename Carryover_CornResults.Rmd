@@ -66,6 +66,7 @@ Corn1 <- Corn %>%
   filter(!is.na(yield)) %>%
   filter(!is.na(Crop.Canopy)) %>%
   filter(!is.na(Stand.Count)) %>%
+  filter(!Site_crop_yr == "Arlington 2020") %>%
   janitor::clean_names()
 
 CornCC <- CC %>%
@@ -86,7 +87,7 @@ CornCC <- CC %>%
          Canopy = round(Canopy/100, 3)) %>%
   filter(!is.na(Biomass_kg)) %>%
   filter(!is.na(Site_crop_yr)) %>% 
-  filter(!Site_crop_yr == "ARL_CN_20") %>%
+  filter(!Site_crop_yr == "Arlington 2020") %>%
   janitor::clean_names()
 
 
