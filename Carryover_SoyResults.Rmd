@@ -598,6 +598,16 @@ Soybean1 %>%
 It appears as if there are similar trends and yield within a location across years.
 I will proceed with performing a separate analysis for each location.
 
+```{r}
+sb_yield= lmer(yield~ location*soil*herb + (1|rep:site_crop_yr), data= Soybean1)
+
+qqnorm(resid(sb_yield))
+
+plot(sb_yield)
+
+anova(sb_yield)
+#Location and soil:Location interaction significant
+```
 
 
 ### Arlington Analysis

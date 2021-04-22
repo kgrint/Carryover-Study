@@ -442,6 +442,18 @@ Corn1 %>%
   geom_boxplot() +
   facet_grid(crop ~ year)
 ```
+
+```{r}
+cn_yield= lmer(yield~ location*soil*herb + (1|rep:site_crop_yr), data= Corn1)
+
+qqnorm(resid(cn_yield))
+
+plot(cn_yield)
+
+anova(cn_yield)
+#soil management and location:soil managment interaction significant
+```
+
 Doesn't appear as if herbicides are likely having any effect on corn yield. It does appear that there are similar trends and yield within a location across years. I will proceed with performing a separate analysis for each location.
 
 ### Arlington 2019 Analysis
