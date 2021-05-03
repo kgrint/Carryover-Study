@@ -252,11 +252,12 @@ cn_canopyherb <- ggplot(cn_canopy_herbCLD, aes(x= herb, y= crop_canopy*100, colo
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none",
         plot.title = element_text(size = 25),
-        axis.title.x = element_text(size = 25),
+        #axis.title.x = element_text(size = 25),
+        axis.title.x = element_blank(),
         axis.title.y = element_text(size = 25),
         axis.text.y = element_text(size = 15),
         axis.text.x = element_text(size = 15)) +
-  labs(x= "Herbicide Treatment", y= "% Canopy Coverage")
+  labs(y= "% Canopy Coverage")
 ```
 
 
@@ -272,12 +273,13 @@ cn_canopy <- ggplot(cn_canopy_soilCLD, aes(x= soil, y= crop_canopy*100, color= s
   scale_color_brewer(palette = "Dark2") +
   theme(legend.position = "none",
         plot.title = element_text(size = 25),
-        axis.title.x = element_text(size = 25),
+       #axis.title.x = element_text(size = 25),
+        axis.title.x = element_blank(),
         axis.title.y = element_text(size = 25),
         axis.text.y = element_text(size = 15),
         axis.text.x = element_text(angle= 45, hjust = 1, size = 15),
         strip.text = element_text(size= 15)) +
-  labs(x= "Soil Management Practice", y= "% Canopy Coverage")
+  labs( y= "% Canopy Coverage")
 ```
 
 
@@ -414,8 +416,8 @@ cn_canopy1
 
 ```{r, include= FALSE}
 composite1<- {cn_canopyherb + cn_canopy }+
-  plot_annotation(title = 'Corn Canopy Coverage',
-                  subtitle = 'V3-V4 Crop Stage',
+  plot_annotation(#title = 'Corn Canopy Coverage',
+                  #subtitle = 'V3-V4 Crop Stage',
   theme = theme(plot.title = element_text(size = 30),
                 plot.subtitle= element_text(size = 20))) 
 ```
